@@ -12,6 +12,9 @@ msgstr ""
 msgid "Network Interface"
 msgstr ""
 
+msgid "Online Users"
+msgstr ""
+
 msgid "Traffic Monitoring"
 msgstr ""
 
@@ -54,10 +57,37 @@ msgstr ""
 msgid "Intranet"
 msgstr ""
 
+msgid "DNS Server"
+msgstr ""
+
 msgid "Disk"
 msgstr ""
 
 msgid "File Manager"
+msgstr ""
+
+msgid "Quick Config"
+msgstr ""
+
+msgid "Mount Points"
+msgstr ""
+
+msgid "Disk Manager"
+msgstr ""
+
+msgid "Getting disk information..."
+msgstr ""
+
+msgid "System Root Directory"
+msgstr ""
+
+msgid "Mounted Disk"
+msgstr ""
+
+msgid "Disconnected"
+msgstr ""
+
+msgid "Intranet Configuration"
 msgstr ""
 
 msgid "Only count mounted partitions"

@@ -118,6 +118,28 @@ local function should_keep_partition(entry)
     return size >= 1073741824
 end
 
+local function should_keep_disk(entry)
+    local name = entry.NAME or ""
+    local path = entry.PATH or ""
+
+    if name:match("^loop") or
+        name:match("^ram") or
+        name:match("^zram") or
+        name:match("^mtdblock") or
+        name:match("^ubiblock") or
+        name:match("^ubi%d+") or
+        name:match("^sr%d*$") then
+        return false
+    end
+
+    if path:find("/dev/mtdblock", 1, true) == 1 or
+        path:find("/dev/ubiblock", 1, true) == 1 then
+        return false
+    end
+
+    return true
+end
+
 local function build_partition(entry, df_map, mount_map, docker_mountpoint)
     local mountpoint = entry.MOUNTPOINT or ""
     local df = df_map[mountpoint]
@@ -179,7 +201,7 @@ function M.disk_status()
         local entry = parse_key_value_line(line)
         local devtype = entry.TYPE
 
-        if devtype == "disk" then
+        if devtype == "disk" and should_keep_disk(entry) then
             local path = entry.PATH ~= "" and entry.PATH or ("/dev/" .. entry.NAME)
             local disk = {
                 name = entry.NAME,

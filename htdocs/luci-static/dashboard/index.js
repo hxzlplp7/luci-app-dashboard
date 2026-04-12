@@ -1960,7 +1960,7 @@ var eF = Fa(Kt => {
                         }
                     },
                     title: {
-                        text: "Traffic Monitoring",
+                        text: "流量监控",
                         textStyle: {
                             fontSize: 12,
                             color: "rgba(0, 0, 0, 0.6)"
@@ -2512,7 +2512,7 @@ var eF = Fa(Kt => {
         },
         Pr = Bt(() => t("div", {
             class: "label-item_key"
-        }, "DNS Server address", -1)),
+        }, "DNS 服务器地址", -1)),
         Tr = {
             class: "label-item_value"
         },
@@ -2522,7 +2522,7 @@ var eF = Fa(Kt => {
         },
         Mr = Bt(() => t("div", {
             class: "label-item_key"
-        }, [t("span", null, "DNS Server address")], -1)),
+        }, [t("span", null, "DNS 服务器地址")], -1)),
         Or = {
             class: "label-item_value"
         },
@@ -2531,7 +2531,7 @@ var eF = Fa(Kt => {
         },
         qr = Bt(() => t("div", {
             class: "label-item_key"
-        }, "Alternate DNS Server address", -1)),
+        }, "备用 DNS 服务器地址", -1)),
         Vr = {
             class: "label-item_value"
         },
@@ -3467,7 +3467,7 @@ var eF = Fa(Kt => {
         },
         bd = ut(() => t("span", {
             class: "container_failure"
-        }, "Disconnected", -1)),
+        }, "未联网", -1)),
         vd = {
             class: "container_time"
         },
@@ -3589,14 +3589,14 @@ var eF = Fa(Kt => {
         },
         Yd = ut(() => t("span", {
             class: "devise"
-        }, "Online Users", -1)),
+        }, "在线设备", -1)),
         Ad = ut(() => t("em", null, null, -1)),
         Sd = {
             class: "app-container_status-container"
         },
         zd = {
             class: "more_icon",
-            title: "Speed test"
+            title: "测速"
         },
         Pd = {
             class: "DeviceBlock"
@@ -3626,10 +3626,10 @@ var eF = Fa(Kt => {
         Vd = {
             class: "app-container_title"
         },
-        Gd = ut(() => t("span", null, "Network Interfaces", -1)),
+        Gd = ut(() => t("span", null, "网络接口", -1)),
         jd = {
             class: "more_icon",
-            title: "View network interface information"
+            title: "查看网络接口信息"
         },
         Rd = {
             class: "DeviceBlock"
@@ -3664,20 +3664,20 @@ var eF = Fa(Kt => {
                     u = $ => {
                         switch ($) {
                             case "pppoe":
-                                return "PPPoE Client";
+                                return "PPPoE 拨号";
                             case "static":
-                                return "Static network";
+                                return "静态地址";
                             case "dhcp":
-                                return "DHCP Client"
+                                return "DHCP 客户端"
                         }
                         return $ && $.toUpperCase()
                     },
                     m = $ => {
                         switch ($) {
                             case "manual":
-                                return "Manual";
+                                return "手动";
                             case "auto":
-                                return "Automatic";
+                                return "自动";
                             default:
                                 return ""
                         }
@@ -3759,7 +3759,7 @@ var eF = Fa(Kt => {
                         onClick: B
                     }, "\u5916\u7F51\u6D4B\u901F")])])], 512), [
                         [wt, f.value]
-                    ]), t("div", Td, [t("span", null, "IP Address\uFF08" + h(w(s).defaultInterface) + "\uFF09", 1)]), t("div", Id, [t("span", null, " IPv4\uFF1A " + h(w(s).ipv4addr) + " \uFF08" + h(u(w(s).proto || "")) + "\uFF09 ", 1)]), t("div", Ld, [t("span", null, "IPv6\uFF1A" + h(w(s).ipv6addr), 1)]), t("div", IPd, [t("span", null, "Public\uFF1A" + h(w(s).ipv6addr), 1)]), t("div", Md, [t("span", null, "DNS\uFF08" + h(m(w(s).dnsProto)) + "\uFF09", 1)]), (i(!0), r(L, null, j(w(s).dnsList, ht => (i(), r("div", Od, [t("span", null, h(ht), 1)]))), 256))]), Nd, t("div", qd, [t("div", Vd, [Gd, t("span", jd, [D($t, {
+                    ]), t("div", Td, [t("span", null, "IP 地址\uFF08" + h(w(s).defaultInterface) + "\uFF09", 1)]), t("div", Id, [t("span", null, " IPv4\uFF1A " + h(w(s).ipv4addr) + " \uFF08" + h(u(w(s).proto || "")) + "\uFF09 ", 1)]), t("div", Ld, [t("span", null, "IPv6\uFF1A" + h(w(s).ipv6addr), 1)]), t("div", IPd, [t("span", null, "公网\uFF1A" + h(w(s).ipv6addr), 1)]), t("div", Md, [t("span", null, "DNS\uFF08" + h(m(w(s).dnsProto)) + "\uFF09", 1)]), (i(!0), r(L, null, j(w(s).dnsList, ht => (i(), r("div", Od, [t("span", null, h(ht), 1)]))), 256))]), Nd, t("div", qd, [t("div", Vd, [Gd, t("span", jd, [D($t, {
                         onClick: x
                     })]), z(t("div", Rd, [t("div", {
                         class: "menu_background",
@@ -3882,7 +3882,7 @@ var eF = Fa(Kt => {
             class: "action-header"
         }, [t("div", {
             class: "action-header_title"
-        }, "Hard Disk Configuration")], -1)),
+        }, "硬盘配置")], -1)),
         x0 = {
             class: "action-body"
         },
@@ -4276,7 +4276,7 @@ var eF = Fa(Kt => {
             class: "action-header"
         }, [t("div", {
             class: "action-header_title"
-        }, "Mount Disk Configuration")], -1)),
+        }, "挂载磁盘配置")], -1)),
         tu = {
             class: "action-body"
         },
@@ -4508,7 +4508,7 @@ var eF = Fa(Kt => {
                                     result: x,
                                     error: E
                                 } = k == null ? void 0 : k.data;
-                                E && F.Warning(E), x && (F.Success("Mounted successfully"), l.value = x, d(1))
+                                E && F.Warning(E), x && (F.Success("挂载成功"), l.value = x, d(1))
                             }
                         } catch (k) {
                             F.Error(k)
@@ -4724,11 +4724,11 @@ var eF = Fa(Kt => {
                     }, null, 8, ["value", "text"])])])) : w(o) ? C("", !0) : (i(), r("div", Su, [t("div", {
                         class: "value-data buttondiv",
                         onClick: c
-                    }, "Manual mount")])), w(f) ? (i(), r("button", {
+                    }, "手动挂载")])), w(f) ? (i(), r("button", {
                         key: 2,
                         class: "cbi-button cbi-button-apply",
                         onClick: p
-                    }, "Partition and format")) : w(n) ? (i(), r("button", {
+                    }, "分区并格式化")) : w(n) ? (i(), r("button", {
                         key: 3,
                         class: "cbi-button cbi-button-apply",
                         onClick: s
@@ -5022,7 +5022,7 @@ var eF = Fa(Kt => {
                             textAlign: "center"
                         },
                         onClick: d[2] || (d[2] = g => s())
-                    }, "Format and Mount")])])])])) : w(o) == "unmounted" ? (i(), r("li", El, [t("div", {
+                    }, "格式化并挂载")])])])])) : w(o) == "unmounted" ? (i(), r("li", El, [t("div", {
                         class: "disk-item_name",
                         title: w(n)
                     }, [t("span", null, h(w(n)), 1)], 8, Cl), t("div", $l, [((b = e.disk.childrens) == null ? void 0 : b.length) == 1 ? (i(), r("div", Dl, [t("div", Bl, [t("button", {
@@ -5032,9 +5032,9 @@ var eF = Fa(Kt => {
                             textAlign: "center"
                         },
                         onClick: d[3] || (d[3] = g => p())
-                    }, "Manual Mount")])])) : C("", !0), (((_ = e.disk.childrens) == null ? void 0 : _.length) || 0) > 1 ? (i(), r("div", Yl, [t("div", Al, [t("button", {
+                    }, "手动挂载")])])) : C("", !0), (((_ = e.disk.childrens) == null ? void 0 : _.length) || 0) > 1 ? (i(), r("div", Yl, [t("div", Al, [t("button", {
                         onClick: d[4] || (d[4] = g => c())
-                    }, "Manual Mount")])])) : C("", !0), t("div", Sl, [(((v = e.disk.childrens) == null ? void 0 : v.length) || 0) > 1 ? (i(), r("span", {
+                    }, "手动挂载")])])) : C("", !0), t("div", Sl, [(((v = e.disk.childrens) == null ? void 0 : v.length) || 0) > 1 ? (i(), r("span", {
                         key: 0,
                         class: "disk_infoicon",
                         onClick: d[5] || (d[5] = g => c())
@@ -5055,13 +5055,13 @@ var eF = Fa(Kt => {
         Il = {
             class: "disk_info"
         },
-        Ll = U("Disk"),
+        Ll = U("磁盘"),
         Ml = {
             class: "app-container_tool"
         },
         Ol = {
             class: "more_icon",
-            title: "View disk management information"
+            title: "查看磁盘管理信息"
         },
         Nl = {
             class: "DeviceBlock"
@@ -5079,9 +5079,9 @@ var eF = Fa(Kt => {
             href: "/cgi-bin/luci/admin/nas/smart"
         }, "S.M.A.R.T")]), t("li", null, [t("a", {
             href: "/cgi-bin/luci/admin/system/diskman"
-        }, "Disk Manager")]), t("li", null, [t("a", {
+        }, "磁盘管理")]), t("li", null, [t("a", {
             href: "/cgi-bin/luci/admin/system/mounts"
-        }, "Mount Points")])], -1)),
+        }, "挂载点")])], -1)),
         Vl = {
             key: 0
         },
@@ -5090,13 +5090,13 @@ var eF = Fa(Kt => {
         },
         jl = ee(() => t("span", {
             class: "disk_loading_info"
-        }, "Getting disk information...", -1)),
+        }, "正在获取磁盘信息...", -1)),
         Rl = {
             key: 1
         },
         Ul = ee(() => t("div", {
             class: "app-container_info"
-        }, [t("span", null, "System Root Directory")], -1)),
+        }, [t("span", null, "系统根目录")], -1)),
         Wl = {
             class: "app-container_body"
         },
@@ -5105,7 +5105,7 @@ var eF = Fa(Kt => {
         },
         Zl = ee(() => t("div", {
             class: "app-container_info"
-        }, [t("span", null, "Mounted Disk")], -1)),
+        }, [t("span", null, "已挂载磁盘")], -1)),
         Jl = {
             class: "app-container_body"
         },
@@ -5164,7 +5164,7 @@ var eF = Fa(Kt => {
                     })]), t("div", Ml, [t("div", {
                         class: "app-container_configure",
                         onClick: p
-                    }, "File Manager"), t("span", Ol, [D($t, {
+                    }, "文件管理"), t("span", Ol, [D($t, {
                         onClick: c
                     })])]), z(t("div", Nl, [t("div", {
                         class: "menu_background",
@@ -6907,7 +6907,7 @@ var eF = Fa(Kt => {
                         key: 0,
                         class: "app-container_configure",
                         onClick: c
-                    }, "Quick Config")) : C("", !0), ((b = o.value) == null ? void 0 : b.status) === "running" ? (i(), r("span", r5, [D($t, {
+                    }, "快速配置")) : C("", !0), ((b = o.value) == null ? void 0 : b.status) === "running" ? (i(), r("span", r5, [D($t, {
                         onClick: s
                     })])) : C("", !0)])) : C("", !0), z(t("div", s5, [t("div", {
                         class: "menu_background",
@@ -8633,7 +8633,7 @@ var eF = Fa(Kt => {
                     }, [t("div", {
                         class: "app-container_configure",
                         onClick: c
-                    }, "Quick Config")])]), t("ul", a7, [t("li", o7, [n7, t("div", i7, [t("a", {
+                    }, "快速配置")])]), t("ul", a7, [t("li", o7, [n7, t("div", i7, [t("a", {
                         class: "configure",
                         href: "/cgi-bin/luci/admin/services/ddns",
                         target: "_blank",
@@ -8873,7 +8873,7 @@ var eF = Fa(Kt => {
         hf = ["onSubmit"],
         xf = mt(() => t("div", {
             class: "actioner-dns_header"
-        }, [t("span", null, "Intranet Configuration")], -1)),
+        }, [t("span", null, "内网测速")], -1)),
         kf = {
             class: "actioner-dns_body"
         },
@@ -9640,7 +9640,7 @@ var eF = Fa(Kt => {
             key: 1
         },
         t9 = ["disabled"],
-        e9 = U(" DNS Server "),
+        e9 = U(" DNS 配置 "),
         a9 = {
             key: 0,
             style: {
@@ -9692,7 +9692,7 @@ var eF = Fa(Kt => {
                             }) => [t("button", {
                                 class: "btn_styles color2",
                                 onClick: q
-                            }, "Network Interface", 8, Zm)]),
+                            }, "网络接口", 8, Zm)]),
                             _: 1
                         }), //w(Vt)("ttyd") ? (i(), r("button", {
                             //key: 0,
@@ -9705,7 +9705,7 @@ var eF = Fa(Kt => {
                         })])) : (k = w(a).checkUpdate) != null && k.needUpdate ? (i(), r("i", Qm)) : C("", !0)])) : C("", !0), t("button", {
                             class: "btn_styles color4",
                             onClick: l
-                        }, "Intranet"), t("button", {
+                        }, "内网测速"), t("button", {
                             class: "btn_styles color5",
                             onClick: c,
                             disabled: !((x = w(n)) != null && x.proto)

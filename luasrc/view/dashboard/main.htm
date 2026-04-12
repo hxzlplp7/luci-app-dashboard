@@ -3,11 +3,17 @@
   local jsonc = require "luci.jsonc"
   local i18n = require "luci.i18n"
   local fs = require "nixio.fs"
+  if i18n.loadc then
+      pcall(i18n.loadc, "dashboard")
+  elseif i18n.load then
+      pcall(i18n.load, "dashboard")
+  end
   local features = { "_lua_force_array_" }
   local configs = {}
   local i18n_map = {
     ["Network Config"] = i18n.translate("Network Config"),
     ["Network Interface"] = i18n.translate("Network Interface"),
+    ["Online Users"] = i18n.translate("Online Users"),
     ["Traffic Monitoring"] = i18n.translate("Traffic Monitoring"),
     ["Network Interfaces"] = i18n.translate("Network Interfaces"),
     ["Bandwidth Monitoring"] = i18n.translate("Bandwidth Monitoring"),
@@ -24,6 +30,15 @@
     ["Intranet"] = i18n.translate("Intranet"),
     ["Disk"] = i18n.translate("Disk"),
     ["File Manager"] = i18n.translate("File Manager"),
+    ["Quick Config"] = i18n.translate("Quick Config"),
+    ["Mount Points"] = i18n.translate("Mount Points"),
+    ["Disk Manager"] = i18n.translate("Disk Manager"),
+    ["Getting disk information..."] = i18n.translate("Getting disk information..."),
+    ["System Root Directory"] = i18n.translate("System Root Directory"),
+    ["Mounted Disk"] = i18n.translate("Mounted Disk"),
+    ["Disconnected"] = i18n.translate("Disconnected"),
+    ["Intranet Configuration"] = i18n.translate("Intranet Configuration"),
+    ["DNS Server"] = i18n.translate("DNS Server"),
     ["Only count mounted partitions"] = i18n.translate("Only count mounted partitions"),
     ["Not partitioned"] = i18n.translate("Not partitioned"),
     ["Unformatted"] = i18n.translate("Unformatted"),

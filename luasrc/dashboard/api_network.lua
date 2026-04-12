@@ -64,6 +64,22 @@ local function get_interface_dump_entries()
     return dump.interface or dump.interfaces or {}
 end
 
+local function entry_has_default_route(entry)
+    for _, route in ipairs(entry.route or {}) do
+        local target = route.target
+        if target == "0.0.0.0" or target == "::/0" then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function entry_has_address(entry)
+    return (entry["ipv4-address"] and #entry["ipv4-address"] > 0) or
+        (entry["ipv6-address"] and #entry["ipv6-address"] > 0)
+end
+
 local function is_lan_like(name)
     return type(name) == "string" and (
         name == "loopback" or
@@ -76,33 +92,49 @@ end
 local function get_default_wan_name()
     local uci = require("luci.model.uci").cursor()
     local entries = get_interface_dump_entries()
-
-    if uci:get("network", "wan") then
-        return "wan"
-    end
+    local best_name = nil
+    local best_score = -1
 
     for _, entry in ipairs(entries) do
-        if entry.interface == "wan" then
-            return entry.interface
-        end
-    end
+        local name = entry.interface
+        if name and name ~= "" and not is_lan_like(name) then
+            local score = 0
 
-    for _, entry in ipairs(entries) do
-        for _, route in ipairs(entry.route or {}) do
-            local target = route.target
-            if target == "0.0.0.0" or target == "::/0" then
-                return entry.interface
+            if entry_has_default_route(entry) then
+                score = score + 100
+            end
+            if entry.up then
+                score = score + 50
+            end
+            if entry_has_address(entry) then
+                score = score + 20
+            end
+            if name == "wwan" then
+                score = score + 40
+            elseif name == "wan" then
+                score = score + 30
+            elseif name:match("wan") then
+                score = score + 20
+            end
+
+            if score > best_score then
+                best_name = name
+                best_score = score
             end
         end
     end
 
-    for _, entry in ipairs(entries) do
-        if entry.up and not is_lan_like(entry.interface) then
-            return entry.interface
+    if best_name and best_score > 0 then
+        return best_name
+    end
+
+    for _, fallback in ipairs({ "wwan", "wan" }) do
+        if uci:get("network", fallback) then
+            return fallback
         end
     end
 
-    return "wan"
+    return best_name or "wan"
 end
 
 local function get_default_wan()
@@ -157,6 +189,11 @@ end
 
 local function is_ethernet_iface(iface)
     if is_virtual_iface(iface) then
+        return false
+    end
+
+    if u.file_exists("/sys/class/net/" .. iface .. "/wireless") or
+        u.file_exists("/sys/class/net/" .. iface .. "/phy80211") then
         return false
     end
 
@@ -404,13 +441,121 @@ local function update_firewall_membership(uci, iface_name, firewall_type)
     end
 end
 
+local function ip_to_u32(ip)
+    local a, b, c, d = ip:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
+    a = tonumber(a)
+    b = tonumber(b)
+    c = tonumber(c)
+    d = tonumber(d)
+
+    if not a or not b or not c or not d then
+        return nil
+    end
+
+    return a * 16777216 + b * 65536 + c * 256 + d
+end
+
+local function mask_to_u32(mask)
+    local mask_num = tonumber(mask)
+    if not mask_num or mask_num <= 0 then
+        return 0
+    end
+    if mask_num >= 32 then
+        return 4294967295
+    end
+
+    return 4294967296 - 2 ^ (32 - mask_num)
+end
+
+local function ip_in_network(ip, network_ip, mask)
+    local ip_num = ip_to_u32(ip)
+    local network_num = ip_to_u32(network_ip)
+    local mask_num = tonumber(mask)
+
+    if not ip_num or not network_num or not mask_num then
+        return false
+    end
+
+    local host_bits = 32 - math.max(0, math.min(32, mask_num))
+    local block_size = 2 ^ host_bits
+
+    return math.floor(ip_num / block_size) == math.floor(network_num / block_size)
+end
+
+local function build_local_client_context()
+    local firewall_map = get_firewall_map()
+    local dump_entries = get_interface_dump_entries()
+    local wan_name, _, wan_l3_device = get_default_wan()
+    local context = {
+        devices = {},
+        networks = {},
+        wan_l3_device = wan_l3_device
+    }
+
+    for _, entry in ipairs(dump_entries) do
+        local name = entry.interface
+        local zone = firewall_map[name]
+        local is_uplink = name == wan_name or zone == "wan"
+
+        if name and not is_uplink then
+            for _, dev in ipairs(split_words(entry.l3_device or entry.device or entry.ifname)) do
+                context.devices[dev] = true
+            end
+
+            if entry.device and entry.device ~= "" then
+                context.devices[entry.device] = true
+            end
+
+            for _, addr in ipairs(entry["ipv4-address"] or {}) do
+                if addr.address and tonumber(addr.mask) then
+                    context.networks[#context.networks + 1] = {
+                        address = addr.address,
+                        mask = tonumber(addr.mask)
+                    }
+                end
+            end
+        end
+    end
+
+    return context
+end
+
+local function is_local_client_ip(ip, context)
+    for _, network in ipairs(context.networks) do
+        if ip_in_network(ip, network.address, network.mask) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function should_keep_client(ip, iface, context)
+    if not ip or ip == "" then
+        return false
+    end
+
+    if iface and iface ~= "" then
+        if context.devices[iface] then
+            return true
+        end
+
+        if iface == context.wan_l3_device then
+            return false
+        end
+    end
+
+    return is_local_client_ip(ip, context)
+end
+
 --- GET /u/network/status/
 -- Returns WAN/LAN connection info, IP, DNS, proto, uptime
 function M.status()
     local uci = require("luci.model.uci").cursor()
     local result = {}
     local wan_ifname, wan, _ = get_default_wan()
-    local wan6 = util.ubus("network.interface.wan6", "status") or {}
+    local wan6_name = wan_ifname == "wan" and "wan6" or (wan_ifname .. "6")
+    local wan6 = util.ubus("network.interface." .. wan6_name, "status") or util.ubus("network.interface.wan6", "status") or {}
 
     result.defaultInterface = wan_ifname
 
@@ -438,7 +583,7 @@ function M.status()
 
     result.uptimeStamp = wan.uptime or 0
 
-    if wan.up then
+    if wan.up or result.ipv4addr ~= "" or result.ipv6addr ~= "" or #result.dnsList > 0 then
         result.networkInfo = (#result.dnsList > 0) and "netSuccess" or "dnsFailed"
     else
         result.networkInfo = "netFailed"
@@ -502,37 +647,42 @@ end
 function M.device_list()
     local devices = {}
     local seen = {}
+    local context = build_local_client_context()
+
+    local function add_device(mac, ip, name, timestamp, iface)
+        if not should_keep_client(ip, iface, context) then
+            return
+        end
+
+        local key = (mac and mac ~= "00:00:00:00:00:00") and mac or ip
+        if not key or key == "" or seen[key] then
+            return
+        end
+
+        seen[key] = true
+        devices[#devices + 1] = {
+            mac = mac or "",
+            ip = ip or "",
+            name = name or "",
+            timestamp = tonumber(timestamp) or 0
+        }
+    end
 
     local leases = u.read_file_all("/tmp/dhcp.leases") or ""
     for line in leases:gmatch("[^\n]+") do
         local ts, mac, ip, name = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
         if mac then
             mac = mac:upper()
-            if not seen[mac] then
-                seen[mac] = true
-                devices[#devices + 1] = {
-                    mac = mac,
-                    ip = ip,
-                    name = (name and name ~= "*") and name or "",
-                    timestamp = tonumber(ts) or 0
-                }
-            end
+            add_device(mac, ip, (name and name ~= "*") and name or "", ts, nil)
         end
     end
 
     local arp = u.read_file_all("/proc/net/arp") or ""
     for line in arp:gmatch("[^\n]+") do
-        local ip, _, _, mac = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+        local ip, _, _, mac, _, iface = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
         if mac and mac ~= "00:00:00:00:00:00" and ip ~= "IP" then
             mac = mac:upper()
-            if not seen[mac] then
-                seen[mac] = true
-                devices[#devices + 1] = {
-                    mac = mac,
-                    ip = ip,
-                    name = ""
-                }
-            end
+            add_device(mac, ip, "", 0, iface)
         end
     end
 
@@ -623,7 +773,7 @@ function M.check_public_net()
     local dns_list = wan["dns-server"] or {}
 
     u.json_success({
-        reachable = wan.up and true or false,
+        reachable = (wan.up or ((wan["ipv4-address"] and #wan["ipv4-address"] > 0) or (wan["ipv6-address"] and #wan["ipv6-address"] > 0))) and true or false,
         dns = #dns_list > 0
     })
 end
