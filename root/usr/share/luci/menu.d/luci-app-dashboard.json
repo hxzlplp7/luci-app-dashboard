@@ -1,10 +1,10 @@
 {
-	"admin/quickstart/*": {
+	"admin/dashboard/*": {
 		"title": "Dashboard",
 		"order": 1,
 		"action": {
 			"type": "template",
-			"path": "quickstart/home"
+			"path": "dashboard/home"
 		}
 	}
 }

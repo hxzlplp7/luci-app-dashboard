@@ -7613,14 +7613,14 @@ ul.disk-item .disk-children li.disk-children_item.on.on[data-v-4a3b6e0a] {
     position: relative
 }
 
-li.linkease-item[data-v-edf68726] {
+li.portal-item[data-v-edf68726] {
     width: 100%;
     display: flex;
     flex-wrap: wrap;
     margin: 1rem 0
 }
 
-li.linkease-item .linkease-item_name[data-v-edf68726] {
+li.portal-item .portal-item_name[data-v-edf68726] {
     flex: 0 0 100%;
     max-width: 50%;
     overflow: hidden;
@@ -7629,7 +7629,7 @@ li.linkease-item .linkease-item_name[data-v-edf68726] {
     padding-right: 10px
 }
 
-li.linkease-item .linkease-item_value[data-v-edf68726] {
+li.portal-item .portal-item_value[data-v-edf68726] {
     flex: 0 0 100%;
     max-width: 50%;
     padding-left: 10px;
@@ -7638,12 +7638,12 @@ li.linkease-item .linkease-item_value[data-v-edf68726] {
     white-space: nowrap
 }
 
-li.linkease-item .linkease-item_value .configure[data-v-edf68726] {
+li.portal-item .portal-item_value .configure[data-v-edf68726] {
     color: #297ff3;
     padding: 3px
 }
 
-li.linkease-item .linkease-item_value .configure.enabel[data-v-edf68726] {
+li.portal-item .portal-item_value .configure.enabel[data-v-edf68726] {
     cursor: pointer
 }
 
@@ -10029,14 +10029,14 @@ h3[data-v-43beecef] {
     align-items: center
 }
 
-.label-item .label-item_key .ddnsto_serve[data-v-43beecef] {
+.label-item .label-item_key .service-option[data-v-43beecef] {
     flex: 0 0 100%;
     display: flex;
     justify-content: space-between;
     margin-bottom: 14px
 }
 
-.label-item .label-item_key .ddnsto_serve_item[data-v-43beecef] {
+.label-item .label-item_key .service-option_item[data-v-43beecef] {
     flex: 0 0 100%;
     display: flex;
     justify-content: space-between
@@ -10978,7 +10978,7 @@ iframe[data-v-7b3ee72a] {
     text-decoration: none
 }
 
-.action-main[data-v-7a6bd385] .actioner-container .actioner-container_body.ddnsto-bind {
+.action-main[data-v-7a6bd385] .actioner-container .actioner-container_body.domain-helper {
     height: 280px
 }
 
@@ -12712,6 +12712,7 @@ iframe[data-v-7b3ee72a] {
 
 .actioner-dns .actioner-dns_body .chose_dhcp .dhcp_info[data-v-a0faa6f2] {
     margin-left: 10px;
+    -webkit-user-select: none;
     user-select: none
 }
 
@@ -14642,6 +14643,7 @@ em[data-v-08ce2a3e] {
 
 #page .chose_dhcp .dhcp_info[data-v-16746f19] {
     margin-left: 10px;
+    -webkit-user-select: none;
     user-select: none
 }
 
@@ -14871,6 +14873,7 @@ em[data-v-08ce2a3e] {
 
 #page .chose_dhcp .dhcp_info[data-v-0d3a64fa] {
     margin-left: 10px;
+    -webkit-user-select: none;
     user-select: none
 }
 
@@ -15128,6 +15131,7 @@ em[data-v-08ce2a3e] {
 
 .switch_inline .switch_info[data-v-1c3f186c] {
     margin-left: 10px;
+    -webkit-user-select: none;
     user-select: none
 }
 
@@ -16473,6 +16477,7 @@ span.msg-warning[data-v-5643983d] {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden
 }
 

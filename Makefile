@@ -5,12 +5,12 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=luci-app-quickstart
+PKG_NAME:=luci-app-dashboard
 PKG_VERSION:=1.0.2-20230817
-PKG_MAINTAINER:=istoreos
+PKG_MAINTAINER:=dashboard-community
 
-LUCI_TITLE:=LuCI support for Quickstart
-LUCI_DEPENDS:=+quickstart +luci-app-nlbwmon
+LUCI_TITLE:=LuCI support for Dashboard
+LUCI_DEPENDS:=+luci-app-nlbwmon
 LUCI_PKGARCH:=all
 
 LUCI_MINIFY_CSS:=0

@@ -203,7 +203,7 @@ var eF = Fa(Kt => {
     const Xe = Ee.create({});
     Xe.interceptors().requset.use(e => e);
     Xe.interceptors().response.use(e => (e.data && e.data.success == null && e.data.success == 0, e));
-    const ja = "/cgi-bin/luci/istore";
+    const ja = "/cgi-bin/luci/dashboard-api";
     let je = !1;
     const I = (e, a) => (e.indexOf("//") == -1 && (e = `${ja}${e}`), Ga(e, a).then(o => (o != null && o.data && o.data.success == -1001 && o.data.error == "Forbidden" && (je || (je = !0, alert("\u767B\u5F55\u8FC7\u671F\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55"), location.reload())), o))),
         Ra = {
@@ -416,18 +416,6 @@ var eF = Fa(Kt => {
                     GET() {
                         return I("/nas/webdav/status/", {
                             method: "GET"
-                        })
-                    }
-                }
-            },
-            Linkease: {
-                Enable: {
-                    POST() {
-                        return I("/u/nas/linkease/enable", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json;charset=utf-8"
-                            }
                         })
                     }
                 }
@@ -732,35 +720,6 @@ var eF = Fa(Kt => {
                     })
                 }
             },
-            Ddnsto: {
-                POST(e) {
-                    return I("/guide/ddnsto/", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json;charset=utf-8"
-                        },
-                        body: JSON.stringify(e)
-                    })
-                }
-            },
-            DdntoConfig: {
-                GET() {
-                    return I("/guide/ddnsto/config/", {
-                        method: "GET"
-                    })
-                }
-            },
-            DdnstoAddress: {
-                POST(e) {
-                    return I("/guide/ddnsto/address/", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json;charset=utf-8"
-                        },
-                        body: JSON.stringify(e)
-                    })
-                }
-            }
         },
         Ja = {
             Create: {
@@ -1779,17 +1738,12 @@ var eF = Fa(Kt => {
                     //o = R(() => {
                         //switch (a.type) {
                             //case "disk":
-                                //return "https://www.linkease.com/rd/8myYAEVA/";
                             //case "store":
-                                //return "https://www.linkease.com/rd/1F58VUTT/";
                             //case "docker":
-                                //return "https://www.linkease.com/rd/2Q28MDtf/";
                             //case "download":
-                                //return "https://www.linkease.com/rd/1tJo1KX-/";
                             //case "ddns":
-                                //return "https://www.linkease.com/rd/3yFiX5-X/";
                             //case "network-interface":
-                                //return "https://www.linkease.com/rd/3ca51a3G/"
+                                //return "/cgi-bin/luci/admin/dashboard"
                         //}
                     //});
                 //return (n, s) => (i(), r("a", {
@@ -4756,7 +4710,7 @@ var eF = Fa(Kt => {
                     f = R(() => a.part.filesystem == "Free Space"),
                     d = R(() => {
                         const l = a.part.mountPoint ? a.part.mountPoint : "";
-                        return l.indexOf("/mnt/") == 0 ? "/cgi-bin/luci/admin/services/linkease/file/?path=/" + l.substring(5) : "/cgi-bin/luci/admin/services/linkease/file/?path=/root" + l
+                        return "/cgi-bin/luci/admin/nas/tinyfilemanager" + (l ? "#" + encodeURIComponent(l) : "")
                     });
                 return (l, u) => {
                     var b;
@@ -5281,7 +5235,7 @@ var eF = Fa(Kt => {
                         title: c.path
                     }, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/services/linkease/file/?path=/root" + c.path
+                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent(c.path)
                     }, h(c.path), 9, l1)], 8, u1)]))), 256))])
                 }
             }
@@ -5347,7 +5301,7 @@ var eF = Fa(Kt => {
                     var c, p, f, d, l, u, m;
                     return i(), r(L, null, [t("li", f1, [m1, t("div", b1, [t("span", null, h((c = e.webdav) != null && c.path ? "\u5DF2\u542F\u7528" : "\u672A\u542F\u7528"), 1)])]), (p = e.webdav) != null && p.path ? (i(), r("li", v1, [g1, t("div", _1, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/services/linkease/file/?path=/root" + ((f = e.webdav) == null ? void 0 : f.path)
+                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent((f = e.webdav) == null ? void 0 : f.path)
                     }, h((d = e.webdav) == null ? void 0 : d.path), 9, h1)])])) : C("", !0), (l = e.webdav) != null && l.port ? (i(), r("li", x1, [k1, t("div", w1, [t("a", {
                         href: w(o),
                         target: "_blank",
@@ -6131,7 +6085,7 @@ var eF = Fa(Kt => {
                 Close: n
             }
         };
-    const Vt = e => !Array.isArray(window.quickstart_features) || window.quickstart_features.indexOf(e) != -1,
+    const Vt = e => !Array.isArray(window.dashboard_features) || window.dashboard_features.indexOf(e) != -1,
         Ut = e => (O("data-v-650e3bd4"), e = e(), N(), e),
         n2 = {
             key: 0,
@@ -6143,25 +6097,22 @@ var eF = Fa(Kt => {
         r2 = Ut(() => t("h3", {
             class: "desc"
         }, "\u8BF7\u9009\u62E9\u9700\u8981\u6DFB\u52A0\u7684NAS\u670D\u52A1", -1)),
-        s2 = Ut(() => t("option", {
-            value: "linkease"
-        }, "\u8DE8\u8BBE\u5907\u5171\u4EAB\uFF08\u6613\u6709\u4E91\uFF09", -1)),
         d2 = Ut(() => t("option", {
             value: "samba"
         }, "\u5C40\u57DF\u7F51\u6587\u4EF6\u5171\u4EAB\uFF08Samba\uFF09", -1)),
         u2 = Ut(() => t("option", {
             value: "webdav"
         }, "\u5C40\u57DF\u7F51\u6587\u4EF6\u5171\u4EAB\uFF08WebDAV\uFF09", -1)),
-        l2 = [s2, d2, u2],
+        l2 = [d2, u2],
         c2 = {
             key: 0,
             class: "tips"
         },
-        p2 = U("\u5982\u9700\u5BF9 Samba \u6216 WebDAV \u8FDB\u884C\u66F4\u7EC6\u81F4\u7684\u6743\u9650\u63A7\u5236\uFF0C\u8BF7\u4F7F\u7528\u201C"),
+        p2 = U("\u5982\u9700\u5BF9 Samba \u8FDB\u884C\u66F4\u7EC6\u81F4\u7684\u6743\u9650\u63A7\u5236\uFF0C\u8BF7\u4F7F\u7528\u201C"),
         f2 = Ut(() => t("a", {
-            href: "/cgi-bin/luci/admin/nas/unishare"
-        }, "\u7EDF\u4E00\u6587\u4EF6\u5171\u4EAB", -1)),
-        m2 = U("\u201D"),
+            href: "/cgi-bin/luci/admin/services/samba4"
+        }, "Samba", -1)),
+        m2 = U("\u201D\u9875\u9762"),
         b2 = [p2, f2, m2],
         v2 = {
             class: "btns"
@@ -6178,7 +6129,7 @@ var eF = Fa(Kt => {
             setup(e) {
                 const a = e,
                     o = y(!0),
-                    n = y("linkease"),
+                    n = y("samba"),
                     s = y(!1),
                     c = y(a.setup || 0),
                     p = () => {
@@ -6191,17 +6142,11 @@ var eF = Fa(Kt => {
                                 break;
                             case "samba":
                                 yield u();
-                                break;
-                            case "linkease":
-                                yield l();
                                 break
                         }
                     }),
                     d = () => T(this, null, function* () {
                         s.value = !0, (yield ct.checkAndInstallApp("app-meta-gowebdav", "GoWebdav")) && m(), s.value = !1
-                    }),
-                    l = () => T(this, null, function* () {
-                        s.value = !0, (yield ct.checkAndInstallApp("linkease", "\u6613\u6709\u4E91", "app-meta-linkease")) && b(), s.value = !1
                     }),
                     u = () => T(this, null, function* () {
                         s.value = !0;
@@ -6225,9 +6170,6 @@ var eF = Fa(Kt => {
                             }
                         })
                     },
-                    b = () => {
-                        sc({}), p()
-                    },
                     _ = g => {
                         $c({
                             rootPath: g
@@ -6250,8 +6192,8 @@ var eF = Fa(Kt => {
                         default: V(() => [c.value == 0 ? (i(), r("div", n2, [i2, r2, t("form", null, [t("label", null, [z(t("select", {
                             "onUpdate:modelValue": k[0] || (k[0] = x => n.value = x)
                         }, l2, 512), [
-                            [Q, n.value]
-                        ])])]), w(Vt)("unishare") ? (i(), r("div", c2, b2)) : C("", !0), t("div", v2, [t("button", {
+                        [Q, n.value]
+                    ])])]), t("div", c2, b2), t("div", v2, [t("button", {
                             class: "cbi-button cbi-button-apply app-btn app-next",
                             onClick: f,
                             type: "button",
@@ -6288,16 +6230,16 @@ var eF = Fa(Kt => {
         };
     const Se = e => (O("data-v-edf68726"), e = e(), N(), e),
         x2 = {
-            class: "app-container_linkease"
+            class: "app-container_portal"
         },
         k2 = {
-            class: "linkease-item"
+            class: "portal-item"
         },
         w2 = Se(() => t("div", {
-            class: "linkease-item_name"
-        }, [t("span", null, "\u5F53\u524D\u72B6\u6001:")], -1)),
+            class: "portal-item_name"
+        }, [t("span", null, "\u5FEB\u6377\u5165\u53E3:")], -1)),
         y2 = {
-            class: "linkease-item_value"
+            class: "portal-item_value"
         },
         F2 = {
             key: 0,
@@ -6305,49 +6247,36 @@ var eF = Fa(Kt => {
         },
         E2 = {
             key: 0,
-            class: "linkease-item"
+            class: "portal-item"
         },
         C2 = Se(() => t("div", {
-            class: "linkease-item_name"
-        }, [t("span", null, "\u670D\u52A1\u5730\u5740:")], -1)),
+            class: "portal-item_name"
+        }, [t("span", null, "\u7BA1\u7406\u9875:")], -1)),
         $2 = {
-            class: "linkease-item_value"
+            class: "portal-item_value"
         },
         D2 = ["href"],
         B2 = Se(() => t("div", null, [t("a", {
-            href: " https://app.linkease.com/",
+            href: "/cgi-bin/luci/admin/nas/tinyfilemanager",
             target: "_blank"
-        }, "\u4E0B\u8F7D\u6613\u6709\u4E91\u5BA2\u6237\u7AEF\uFF0C\u968F\u65F6\u968F\u5730\u76F8\u518C\u5907\u4EFD\u3001\u8FDC\u7A0B\u8BBF\u95EE")], -1)),
+        }, "\u6253\u5F00\u5185\u7F6E\u6587\u4EF6\u7BA1\u7406\u5668\uFF0C\u7EDF\u4E00\u67E5\u770B\u548C\u7EF4\u62A4\u5171\u4EAB\u76EE\u5F55")], -1)),
         Y2 = P({
-            props: {
-                linkease: {
-                    type: Object
-                }
-            },
             setup(e) {
-                const a = e,
-                    o = R(() => {
-                        var s;
-                        return `http://${location.hostname}:${(s=a.linkease)==null?void 0:s.port}`
-                    }),
+                const o = "/cgi-bin/luci/admin/nas/tinyfilemanager",
                     n = () => {
-                        ca({
-                            setup: 0
-                        })
+                        location.href = o
                     };
                 return (s, c) => {
-                    var p, f, d;
-                    return i(), r("ul", x2, [t("li", k2, [w2, t("div", y2, [(p = e.linkease) != null && p.enabel ? (i(), r("span", F2, "\u5DF2\u914D\u7F6E")) : (i(), r("span", {
-                        key: 1,
+                    return i(), r("ul", x2, [t("li", k2, [w2, t("div", y2, [t("span", {
                         class: "configure enabel",
                         onClick: c[0] || (c[0] = l => n())
-                    }, "\u672A\u914D\u7F6E"))])]), (f = e.linkease) != null && f.enabel ? (i(), r(L, {
+                    }, "\u6253\u5F00")])]), (i(), r(L, {
                         key: 0
-                    }, [(d = e.linkease) != null && d.port ? (i(), r("li", E2, [C2, t("div", $2, [t("a", {
-                        href: w(o),
+                    }, [(i(), r("li", E2, [C2, t("div", $2, [t("a", {
+                        href: o,
                         target: "_blank",
                         rel: "noopener noreferrer"
-                    }, h(w(o)), 9, D2)])])) : C("", !0)], 64)) : C("", !0), B2])
+                    }, h(o), 9, D2)])]))], 64)), B2])
                 }
             }
         });
@@ -6384,7 +6313,7 @@ var eF = Fa(Kt => {
         q2 = P({
             setup(e) {
                 const a = y(!1),
-                    o = y("linkease"),
+                    o = y("samba"),
                     n = y(),
                     s = Qe();
                 (() => {
@@ -6408,7 +6337,7 @@ var eF = Fa(Kt => {
                         f(), ct.installAndGo("app-meta-gowebdav", "GoWebDAV", "/cgi-bin/luci/admin/nas/gowebdav")
                     };
                 return (l, u) => {
-                    var b, _, v;
+                    var b, _;
                     const m = X("GlHelp");
                     return i(), r("div", S2, [t("div", z2, [t("span", null, [P2, D(m, {
                         type: "store"
@@ -6425,17 +6354,12 @@ var eF = Fa(Kt => {
                     }, "WebDAV\u9AD8\u7EA7\u914D\u7F6E")])])], 512), [
                         [wt, a.value]
                     ])]), t("div", O2, [t("ul", N2, [t("button", {
-                        onClick: u[0] || (u[0] = g => o.value = "linkease"),
-                        class: ot({
-                            on: o.value == "linkease"
-                        })
-                    }, "Remote Access", 2), t("button", {
-                        onClick: u[1] || (u[1] = g => o.value = "samba"),
+                        onClick: u[0] || (u[0] = g => o.value = "samba"),
                         class: ot({
                             on: o.value == "samba"
                         })
-                    }, "IP Info", 2), t("button", {
-                        onClick: u[2] || (u[2] = g => o.value = "webdav"),
+                    }, "SAMBA", 2), t("button", {
+                        onClick: u[1] || (u[1] = g => o.value = "webdav"),
                         class: ot({
                             on: o.value == "webdav"
                         })
@@ -6445,10 +6369,7 @@ var eF = Fa(Kt => {
                     }, null, 8, ["sambas"])) : o.value == "webdav" ? (i(), M(D1, {
                         key: 1,
                         webdav: (_ = n.value) == null ? void 0 : _.webdav
-                    }, null, 8, ["webdav"])) : o.value == "linkease" ? (i(), M(A2, {
-                        key: 2,
-                        linkease: (v = n.value) == null ? void 0 : v.linkease
-                    }, null, 8, ["linkease"])) : C("", !0)])])
+                    }, null, 8, ["webdav"])) : C("", !0)])])
                 }
             }
         });
@@ -7060,9 +6981,9 @@ var eF = Fa(Kt => {
         Y5 = oe(() => t("div", {
             class: "use-url_app"
         }, [t("a", {
-            href: "https://doc.linkease.com/zh/guide/linkease_app/tutorial.html#%E8%BF%9C%E7%A8%8B%E4%B8%8B%E8%BD%BD",
+            href: "/cgi-bin/luci/admin/services/aria2",
             target: "_blank"
-        }, "\u4F7F\u7528\u6613\u6709\u4E91APP\uFF0C\u968F\u65F6\u968F\u5730\u8FDC\u7A0B\u4E0B\u8F7D")], -1)),
+        }, "\u6253\u5F00 Aria2 \u914D\u7F6E\u9875\uFF0C\u6309\u63D0\u793A\u5B8C\u6210\u8FDC\u7A0B\u4E0B\u8F7D")], -1)),
         A5 = P({
             props: {
                 aria2: {
@@ -7088,7 +7009,7 @@ var eF = Fa(Kt => {
                         key: 0
                     }, [t("li", _5, [h5, t("div", x5, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/services/linkease/file/?path=/root" + ((d = e.aria2) == null ? void 0 : d.downloadPath)
+                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent((d = e.aria2) == null ? void 0 : d.downloadPath)
                     }, h((l = e.aria2) == null ? void 0 : l.downloadPath), 9, k5)])]), t("li", w5, [y5, t("div", F5, [t("a", {
                         href: w(o),
                         target: "_blank",
@@ -7170,7 +7091,7 @@ var eF = Fa(Kt => {
                         key: 0
                     }, [t("li", O5, [N5, t("div", q5, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/services/linkease/file/?path=/root" + ((f = e.qbittorrent) == null ? void 0 : f.downloadPath)
+                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent((f = e.qbittorrent) == null ? void 0 : f.downloadPath)
                     }, h((d = e.qbittorrent) == null ? void 0 : d.downloadPath), 9, V5)])]), t("li", G5, [j5, t("div", R5, [t("a", {
                         href: w(o),
                         target: "_blank",
@@ -7241,7 +7162,7 @@ var eF = Fa(Kt => {
                         key: 0
                     }, [t("li", a3, [o3, t("div", n3, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/services/linkease/file/?path=/root" + ((f = e.transmission) == null ? void 0 : f.downloadPath)
+                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent((f = e.transmission) == null ? void 0 : f.downloadPath)
                     }, h((d = e.transmission) == null ? void 0 : d.downloadPath), 9, i3)])]), t("li", r3, [s3, t("div", d3, [t("a", {
                         href: w(o),
                         target: "_blank",
@@ -7942,7 +7863,7 @@ var eF = Fa(Kt => {
                 },
                 active: {
                     type: String,
-                    default: "ddnsto"
+                    default: "ali"
                 }
             },
             emits: ["update:active"],
@@ -7956,9 +7877,6 @@ var eF = Fa(Kt => {
                     s = y(o.active),
                     c = () => {
                         switch (a("update:active", s.value), s.value) {
-                            case "ddnsto":
-                                o.onSetup("ddnsto");
-                                break;
                             case "ali":
                                 o.onSetup("ddns-ali");
                                 break;
@@ -7973,24 +7891,18 @@ var eF = Fa(Kt => {
                 return (p, f) => (i(), r("div", U4, [W4, t("div", H4, [t("div", Z4, [t("label", null, [z(t("input", {
                     type: "radio",
                     "onUpdate:modelValue": f[0] || (f[0] = d => s.value = d),
-                    value: "ddnsto"
-                }, null, 512), [
-                    [ft, s.value]
-                ]), J4]), X4]), t("div", K4, [t("label", null, [z(t("input", {
-                    type: "radio",
-                    "onUpdate:modelValue": f[1] || (f[1] = d => s.value = d),
                     value: "ali"
                 }, null, 512), [
                     [ft, s.value]
                 ]), Q4]), t8]), t("div", e8, [t("label", null, [z(t("input", {
                     type: "radio",
-                    "onUpdate:modelValue": f[2] || (f[2] = d => s.value = d),
+                    "onUpdate:modelValue": f[1] || (f[1] = d => s.value = d),
                     value: "dnspod"
                 }, null, 512), [
                     [ft, s.value]
                 ]), a8]), o8]), t("div", n8, [t("label", null, [z(t("input", {
                     type: "radio",
-                    "onUpdate:modelValue": f[3] || (f[3] = d => s.value = d),
+                    "onUpdate:modelValue": f[2] || (f[2] = d => s.value = d),
                     value: "oray"
                 }, null, 512), [
                     [ft, s.value]
@@ -8076,366 +7988,6 @@ var eF = Fa(Kt => {
     var h8 = Y(_8, [
         ["__scopeId", "data-v-43dd65a2"]
     ]);
-    const ma = e => (O("data-v-7790f1da"), e = e(), N(), e),
-        x8 = {
-            class: "actioner-container"
-        },
-        k8 = ma(() => t("div", {
-            class: "actioner-container_header"
-        }, [t("span", null, "\u57DF\u540D\u914D\u7F6E\u5411\u5BFC")], -1)),
-        w8 = ma(() => t("div", {
-            class: "actioner-container_body ddnsto-login"
-        }, [t("iframe", {
-            src: "https://www.kooldns.cn/bind/#/auth?send=1&source=openwrt&callback=*"
-        })], -1)),
-        y8 = P({
-            props: {
-                onSetup: {
-                    type: Function,
-                    required: !0
-                },
-                onDdnstoConfig: {
-                    type: Function,
-                    required: !0
-                }
-            },
-            setup(e) {
-                const a = e,
-                    o = () => {
-                        a.onSetup()
-                    },
-                    n = s => {
-                        if (s.data.auth == "ddnsto") {
-                            const c = s.data.sign,
-                                p = s.data.token;
-                            c && p && (removeEventListener("message", n), a.onDdnstoConfig(c, p), a.onSetup("ddnsto-run"))
-                        }
-                    };
-                return Ft(() => {
-                    window.addEventListener("message", n)
-                }), Gt(() => {
-                    removeEventListener("message", n)
-                }), (s, c) => (i(), r("div", x8, [k8, w8, t("div", {
-                    class: "actioner-container_footer"
-                }, [t("div", {
-                    class: "close",
-                    onClick: o
-                }, "\u53D6\u6D88")])]))
-            }
-        });
-    var F8 = Y(y8, [
-        ["__scopeId", "data-v-7790f1da"]
-    ]);
-    const E8 = e => (O("data-v-7b3ee72a"), e = e(), N(), e),
-        C8 = {
-            class: "actioner-container"
-        },
-        $8 = E8(() => t("div", {
-            class: "actioner-container_header"
-        }, [t("span", null, "\u57DF\u540D\u914D\u7F6E\u5411\u5BFC")], -1)),
-        D8 = {
-            class: "actioner-container_body ddnsto-bind"
-        },
-        B8 = ["src"],
-        Y8 = P({
-            props: {
-                onSetup: {
-                    type: Function,
-                    required: !0
-                },
-                config: {
-                    type: Object,
-                    required: !0
-                },
-                domain: {
-                    type: String,
-                    required: !0
-                }
-            },
-            emits: ["update:domain"],
-            setup(e, {
-                emit: a
-            }) {
-                const o = e,
-                    n = R(() => {
-                        const {
-                            domain: p,
-                            token: f,
-                            sign: d,
-                            routerId: l,
-                            netaddr: u
-                        } = o.config, m = encodeURIComponent(p), b = encodeURIComponent(u);
-                        return `https://www.kooldns.cn/bind/#/domain?domain=${m}&sign=${d}&token=${f}&routerId=${l}&netaddr=${b}`
-                    }),
-                    s = p => {
-                        if (p.data) {
-                            const {
-                                auth: f,
-                                url: d
-                            } = p.data;
-                            f === "ddnsto" && d && c(d)
-                        }
-                    },
-                    c = p => T(this, null, function* () {
-                        var f;
-                        try {
-                            const d = yield S.Guide.DdnstoAddress.POST({
-                                address: p
-                            });
-                            d != null && d.data && (((f = d == null ? void 0 : d.data) == null ? void 0 : f.success) || 0) == 0 && (a("update:domain", p), o.onSetup("ddnsto-save"))
-                        } catch (d) {}
-                    });
-                return Ft(() => {
-                    window.addEventListener("message", s)
-                }), Gt(() => {
-                    removeEventListener("message", s)
-                }), (p, f) => (i(), r("div", C8, [$8, t("div", D8, [t("iframe", {
-                    src: w(n)
-                }, null, 8, B8)])]))
-            }
-        });
-    var A8 = Y(Y8, [
-        ["__scopeId", "data-v-7b3ee72a"]
-    ]);
-    const ie = e => (O("data-v-7f5a8953"), e = e(), N(), e),
-        S8 = {
-            class: "actioner-container"
-        },
-        z8 = {
-            class: "actioner-container_body"
-        },
-        P8 = ie(() => t("svg", {
-            t: "1642063181211",
-            class: "icon",
-            viewBox: "0 0 1024 1024",
-            version: "1.1",
-            xmlns: "http://www.w3.org/2000/svg",
-            "p-id": "5062",
-            width: "128",
-            height: "128",
-            "data-v-cda444e0": ""
-        }, [t("path", {
-            d: "M512 85.333333c235.648 0 426.666667 191.018667 426.666667 426.666667s-191.018667 426.666667-426.666667 426.666667S85.333333 747.648 85.333333 512 276.352 85.333333 512 85.333333z m-74.965333 550.4L346.453333 545.152a42.666667 42.666667 0 1 0-60.330666 60.330667l120.704 120.704a42.666667 42.666667 0 0 0 60.330666 0l301.653334-301.696a42.666667 42.666667 0 1 0-60.288-60.330667l-271.530667 271.488z",
-            fill: "#52C41A",
-            "p-id": "5063",
-            "data-v-cda444e0": ""
-        })], -1)),
-        T8 = ie(() => t("div", {
-            class: "body-title"
-        }, "\u6DFB\u52A0\u6210\u529F", -1)),
-        I8 = ie(() => t("p", {
-            class: "body-tips"
-        }, "\u8BF7\u7A0D\u7B491\u5206\u949F\u751F\u6548\u540E\u518D\u4F7F\u7528\u3002", -1)),
-        L8 = {
-            class: "body-info"
-        },
-        M8 = ie(() => t("span", null, "\u8BBF\u95EE\u5730\u5740\uFF1A", -1)),
-        O8 = ["href"],
-        N8 = ie(() => t("div", null, [t("span", null, "\u53EF\u524D\u5F80"), t("a", {
-            href: "https://www.ddnsto.com/app/#/devices",
-            target: "_blank"
-        }, "DDNSTO\u63A7\u5236\u53F0"), t("span", null, "\u67E5\u770B\u66F4\u591A\u8BE6\u60C5")], -1)),
-        q8 = P({
-            props: {
-                onSetup: {
-                    type: Function,
-                    required: !0
-                },
-                target: {
-                    type: String,
-                    required: !0
-                }
-            },
-            setup(e) {
-                const a = () => {
-                    location.reload()
-                };
-                return (o, n) => (i(), r("div", S8, [t("div", z8, [P8, T8, I8, t("div", L8, [M8, t("a", {
-                    href: e.target,
-                    target: "_blank",
-                    rel: "noopener noreferrer"
-                }, h(e.target), 9, O8)]), N8]), t("div", {
-                    class: "actioner-container_footer"
-                }, [t("div", {
-                    class: "close",
-                    onClick: a
-                }, "\u5173\u95ED")])]))
-            }
-        });
-    var V8 = Y(q8, [
-        ["__scopeId", "data-v-7f5a8953"]
-    ]);
-    const G8 = e => (O("data-v-d60389d6"), e = e(), N(), e),
-        j8 = {
-            class: "actioner-container"
-        },
-        R8 = G8(() => t("div", {
-            class: "actioner-container_header"
-        }, [t("span", null, "\u57DF\u540D\u914D\u7F6E\u5411\u5BFC")], -1)),
-        U8 = {
-            class: "actioner-container_body"
-        },
-        W8 = {
-            class: "actioner-container_footer"
-        },
-        H8 = P({
-            props: {
-                onSetup: {
-                    type: Function,
-                    required: !0
-                }
-            },
-            setup(e) {
-                const a = e,
-                    o = () => {
-                        a.onSetup()
-                    },
-                    n = () => T(this, null, function* () {
-                        if (p.value) return;
-                        p.value = !0;
-                        const d = F.Loading("\u5B89\u88C5\u4E2D...");
-                        try {
-                            if (yield ct.installApp("app-meta-ddnsto", 30)) {
-                                a.onSetup("ddnsto-login");
-                                return
-                            } else s.value = "\u5B89\u88C5\u5931\u8D25"
-                        } catch (l) {
-                            s.value = l
-                        } finally {
-                            d.Close()
-                        }
-                        p.value = !1
-                    }),
-                    s = y("\u6B63\u5728\u68C0\u6D4B\u4E2D..."),
-                    c = y(!1),
-                    p = y(!1);
-                return (() => T(this, null, function* () {
-                    try {
-                        const d = yield S.App.Check.POST({
-                            name: "ddnsto"
-                        });
-                        if (d != null && d.data) {
-                            const {
-                                result: l,
-                                error: u
-                            } = d.data;
-                            if (u) {
-                                s.value = u;
-                                return
-                            }
-                            if (l) {
-                                if (l.status == "installed") {
-                                    a.onSetup("ddnsto-login");
-                                    return
-                                }
-                                l.status == "uninstalled" && (s.value = "\u9700\u8981\u5B89\u88C5DDNSTO\u63D2\u4EF6\uFF0C\u70B9\u51FB\u201C\u786E\u5B9A\u201D\u5F00\u59CB\u5B89\u88C5")
-                            }
-                        }
-                    } catch (d) {
-                        s.value = d
-                    }
-                    c.value = !0
-                }))(), (d, l) => (i(), r("div", j8, [R8, t("div", U8, [t("span", null, h(s.value), 1)]), t("div", W8, [c.value ? (i(), r(L, {
-                    key: 0
-                }, [t("div", {
-                    class: "close",
-                    onClick: o
-                }, "\u53D6\u6D88"), t("div", {
-                    class: "next",
-                    onClick: n
-                }, "\u786E\u5B9A")], 64)) : C("", !0)])]))
-            }
-        });
-    var Z8 = Y(H8, [
-        ["__scopeId", "data-v-d60389d6"]
-    ]);
-    const J8 = e => (O("data-v-1e0ebd66"), e = e(), N(), e),
-        X8 = {
-            class: "actioner-container"
-        },
-        K8 = J8(() => t("div", {
-            class: "actioner-container_header"
-        }, [t("span", null, "\u57DF\u540D\u914D\u7F6E\u5411\u5BFC")], -1)),
-        Q8 = {
-            class: "actioner-container_body"
-        },
-        tp = P({
-            props: {
-                onSetup: {
-                    type: Function,
-                    required: !0
-                },
-                token: {
-                    type: String,
-                    required: !0
-                },
-                onDdnstoLocalConfig: {
-                    type: Function,
-                    required: !0
-                }
-            },
-            setup(e) {
-                const a = e,
-                    o = y("\u6B63\u5728\u68C0\u6D4B\u63D2\u4EF6\u662F\u5426\u5DF2\u542F\u52A8...");
-                (d => T(this, null, function* () {
-                    var l;
-                    try {
-                        const u = yield S.Guide.Ddnsto.POST({
-                            token: a.token
-                        });
-                        u != null && u.data && (u.data.error && (o.value = u.data.error), (((l = u == null ? void 0 : u.data) == null ? void 0 : l.success) || 0) == 0 && c())
-                    } catch (u) {
-                        o.value = u
-                    }
-                }))(a.token);
-                const s = y(),
-                    c = () => {
-                        const d = () => T(this, null, function* () {
-                            if ((yield p()) === !0) {
-                                f();
-                                return
-                            }
-                            s.value = window.setTimeout(d, 2e3)
-                        });
-                        d()
-                    },
-                    p = () => T(this, null, function* () {
-                        try {
-                            const d = yield S.App.Check.POST({
-                                name: "ddnsto",
-                                checkRunning: !0
-                            });
-                            if (d != null && d.data) {
-                                d.data.error && (o.value = d.data.error);
-                                const l = d.data.result;
-                                if ((l == null ? void 0 : l.status) == "running") return !0
-                            }
-                        } catch (d) {
-                            o.value = d
-                        }
-                        return !1
-                    });
-                Gt(() => {
-                    s.value && clearInterval(s.value)
-                });
-                const f = () => T(this, null, function* () {
-                    var d;
-                    try {
-                        const l = yield S.Guide.DdntoConfig.GET();
-                        if (l != null && l.data && (l.data.error && (o.value = l.data.error), (((d = l == null ? void 0 : l.data) == null ? void 0 : d.success) || 0) == 0 && l.data.result)) {
-                            const u = l.data.result;
-                            a.onDdnstoLocalConfig(u.netAddr, u.deviceId), a.onSetup("ddnsto-bind")
-                        }
-                    } catch (l) {
-                        o.value = l
-                    }
-                });
-                return (d, l) => (i(), r("div", X8, [K8, t("div", Q8, h(o.value), 1)]))
-            }
-        });
-    var ep = Y(tp, [
-        ["__scopeId", "data-v-1e0ebd66"]
-    ]);
     const ap = {
             class: "action-main"
         },
@@ -8451,59 +8003,28 @@ var eF = Fa(Kt => {
                 }
             },
             setup(e) {
-                const a = e,
-                    o = y("ddnsto-install"),
-                    n = d => {
-                        d != null ? o.value = d : s()
-                    },
-                    s = () => {
-                        a.Close && a.Close()
-                    },
-                    c = it({
-                        sign: "",
-                        token: "",
-                        domain: a.url,
-                        netaddr: "",
-                        routerId: ""
-                    }),
-                    p = (d, l) => {
-                        c.sign = d, c.token = l
-                    },
-                    f = (d, l) => {
-                        c.netaddr = d, c.routerId = l
-                    };
-                return (d, l) => (i(), M(et, {
+                const a = () => {
+                    e.Close && e.Close()
+                };
+                return (o, n) => (i(), M(et, {
                     type: 1
                 }, {
-                    default: V(() => [t("div", ap, [o.value == "ddnsto-install" ? (i(), M(Z8, {
-                        key: 0,
-                        onSetup: n
-                    })) : o.value == "ddnsto-login" ? (i(), M(F8, {
-                        key: 1,
-                        onSetup: n,
-                        onDdnstoConfig: p
-                    })) : o.value == "ddnsto-run" ? (i(), M(ep, {
-                        key: 2,
-                        onSetup: n,
-                        token: w(c).token,
-                        onDdnstoLocalConfig: f
-                    }, null, 8, ["token"])) : o.value == "ddnsto-bind" ? (i(), M(A8, {
-                        key: 3,
-                        onSetup: n,
-                        config: {
-                            token: w(c).token,
-                            sign: w(c).sign,
-                            domain: w(c).domain,
-                            netaddr: w(c).netaddr,
-                            routerId: w(c).routerId
-                        },
-                        domain: w(c).domain,
-                        "onUpdate:domain": l[0] || (l[0] = u => w(c).domain = u)
-                    }, null, 8, ["config", "domain"])) : o.value == "ddnsto-save" ? (i(), M(V8, {
-                        key: 4,
-                        onSetup: n,
-                        target: w(c).domain
-                    }, null, 8, ["target"])) : C("", !0)])]),
+                    default: V(() => [t("div", ap, [t("div", {
+                        class: "actioner-container"
+                    }, [t("div", {
+                        class: "actioner-container_header"
+                    }, [t("span", null, "\u57DF\u540D\u914D\u7F6E\u5411\u5BFC")]), t("div", {
+                        class: "actioner-container_body domain-helper"
+                    }, [t("p", null, "\u7B2C\u4E09\u65B9\u7A7F\u900F\u5411\u5BFC\u5DF2\u79FB\u9664\u3002\u8BF7\u4F7F\u7528 DDNS \u914D\u7F6E\u5411\u5BFC\u6216\u201C\u670D\u52A1-\u52A8\u6001DNS\u201D\u9875\u9762\u5B8C\u6210\u8FDC\u7A0B\u57DF\u540D\u914D\u7F6E\u3002"), t("a", {
+                        href: "/cgi-bin/luci/admin/services/ddns",
+                        target: "_blank",
+                        rel: "noopener noreferrer"
+                    }, "\u6253\u5F00 DDNS \u914D\u7F6E\u9875")]), t("div", {
+                        class: "actioner-container_footer"
+                    }, [t("div", {
+                        class: "close",
+                        onClick: a
+                    }, "\u5173\u95ED")])])])]),
                     _: 1
                 }))
             }
@@ -8637,7 +8158,7 @@ var eF = Fa(Kt => {
         vp = rt(() => t("p", null, " \u963F\u91CC\u4E91 ", -1)),
         gp = rt(() => t("span", null, " \u4E3A\u62E5\u6709\u52A8\u6001IP\u7684\u4E3B\u673A\u914D\u7F6E\u4E00\u4E2A\u56FA\u5B9A\u7684\u53EF\u8BBF\u95EE\u57DF\u540D ", -1)),
         _p = rt(() => t("a", {
-            href: "https://doc.linkease.com/zh/guide/istoreos/basic/domain.html#%E9%98%BF%E9%87%8C%E4%BA%91",
+            href: "/cgi-bin/luci/admin/services/ddns",
             target: "_blank"
         }, "\u67E5\u770B\u6559\u7A0B>>", -1)),
         hp = [vp, gp, _p],
@@ -8648,7 +8169,7 @@ var eF = Fa(Kt => {
         kp = rt(() => t("p", null, " dnspod ", -1)),
         wp = rt(() => t("span", null, " \u4E3A\u62E5\u6709\u52A8\u6001IP\u7684\u4E3B\u673A\u914D\u7F6E\u4E00\u4E2A\u56FA\u5B9A\u7684\u53EF\u8BBF\u95EE\u57DF\u540D ", -1)),
         yp = rt(() => t("a", {
-            href: "https://doc.linkease.com/zh/guide/istoreos/basic/domain.html#dnspod",
+            href: "/cgi-bin/luci/admin/services/ddns",
             target: "_blank"
         }, "\u67E5\u770B\u6559\u7A0B>>", -1)),
         Fp = [kp, wp, yp],
@@ -8659,7 +8180,7 @@ var eF = Fa(Kt => {
         Cp = rt(() => t("p", null, " \u82B1\u751F\u58F3 ", -1)),
         $p = rt(() => t("span", null, " \u4E3A\u62E5\u6709\u52A8\u6001IP\u7684\u4E3B\u673A\u914D\u7F6E\u4E00\u4E2A\u56FA\u5B9A\u7684\u53EF\u8BBF\u95EE\u57DF\u540D ", -1)),
         Dp = rt(() => t("a", {
-            href: "https://doc.linkease.com/zh/guide/istoreos/basic/domain.html#%E8%8A%B1%E7%94%9F%E5%A3%B3",
+            href: "/cgi-bin/luci/admin/services/ddns",
             target: "_blank"
         }, "\u67E5\u770B\u6559\u7A0B>>", -1)),
         Bp = [Cp, $p, Dp],
@@ -8798,22 +8319,7 @@ var eF = Fa(Kt => {
                         })
                     },
                     m = () => {
-                        de({
-                            title: "\u6E29\u99A8\u63D0\u793A",
-                            nextTitle: "\u4F7F\u7528DDNSTO",
-                            continuerTitle: "\u7EE7\u7EED\u4FDD\u5B58",
-                            content: "\u68C0\u6D4B\u5230\u60A8\u7684wan\u53E3\u6CA1\u6709\u516C\u7F51IP\u6216\u8005IPv6\u5730\u5740\uFF0C\u53EF\u4EE5\u4F7F\u7528DDNSTO\u914D\u7F6E\u8FDC\u7A0B\u57DF\u540D\u8BBF\u95EE",
-                            next() {
-                                b()
-                            },
-                            continuer() {
-                                _()
-                            },
-                            clear() {}
-                        })
-                    },
-                    b = () => {
-                        o.onSetup("ddnsto")
+                        F.Warning("\u5F53\u524D WAN \u53E3\u672A\u68C0\u6D4B\u5230\u516C\u7F51 IPv4 \u6216 IPv6 \u5730\u5740\uFF0CDDNS \u53EF\u80FD\u65E0\u6CD5\u5728\u516C\u7F51\u76F4\u63A5\u8BBF\u95EE")
                     },
                     _ = () => {
                         d.value = !0;
@@ -8927,22 +8433,13 @@ var eF = Fa(Kt => {
                     n = y("index"),
                     s = d => {
                         if (d != null) {
-                            if (d == "ddnsto") {
-                                c();
-                                return
-                            }
                             n.value = d
                         } else p()
-                    },
-                    c = () => {
-                        p(), ip({
-                            url: a.url
-                        })
                     },
                     p = () => {
                         a.Close && a.Close()
                     },
-                    f = y("ddnsto");
+                    f = y("ali");
                 return (d, l) => (i(), M(et, {
                     Close: e.Close,
                     type: 1
@@ -9014,16 +8511,16 @@ var eF = Fa(Kt => {
         },
         n7 = Nt(() => t("div", {
             class: "domain-item_name"
-        }, [t("span", null, "DDNSTO\uFF1A")], -1)),
+        }, [t("span", null, "\u7BA1\u7406\u5165\u53E3\uFF1A")], -1)),
         i7 = {
             class: "domain-item_value"
         },
         r7 = ["href", "title"],
         s7 = Nt(() => t("a", {
             class: "item_btn",
-            href: "https://www.kooldns.cn/app/#/devices",
+            href: "/cgi-bin/luci/admin/services/ddns",
             target: "_blank"
-        }, "\u63A7\u5236\u53F0", -1)),
+        }, "\u914D\u7F6E\u9875", -1)),
         d7 = {
             class: "domain-item"
         },
@@ -9116,7 +8613,7 @@ var eF = Fa(Kt => {
                 });
                 const c = () => {
                         Kp({
-                            url: n.value.ddnstoDomain
+                            url: n.value.ipv4Domain || n.value.ipv6Domain || ""
                         })
                     },
                     p = R(() => {
@@ -9128,7 +8625,6 @@ var eF = Fa(Kt => {
                         return d != null && d != "" && d != "Stopped" ? `http://${d}` : d
                     });
                 return (d, l) => {
-                    var m, b, _;
                     const u = X("GlHelp");
                     return i(), r("div", Qp, [t("div", t7, [t("span", null, [e7, D(u, {
                         type: "ddns"
@@ -9139,11 +8635,11 @@ var eF = Fa(Kt => {
                         onClick: c
                     }, "Quick Config")])]), t("ul", a7, [t("li", o7, [n7, t("div", i7, [t("a", {
                         class: "configure",
-                        href: (m = n.value) == null ? void 0 : m.ddnstoDomain,
+                        href: "/cgi-bin/luci/admin/services/ddns",
                         target: "_blank",
                         rel: "noopener noreferrer",
-                        title: (b = n.value) == null ? void 0 : b.ddnstoDomain
-                    }, h((_ = n.value) == null ? void 0 : _.ddnstoDomain), 9, r7), s7])]), t("li", d7, [u7, t("div", l7, [w(p) == "Stopped" ? (i(), r("span", c7, h(w(p)), 1)) : (i(), r("a", {
+                        title: "\u6253\u5F00 DDNS \u914D\u7F6E"
+                    }, "\u6253\u5F00 DDNS \u914D\u7F6E", 8, r7), s7])]), t("li", d7, [u7, t("div", l7, [w(p) == "Stopped" ? (i(), r("span", c7, h(w(p)), 1)) : (i(), r("a", {
                         key: 1,
                         class: "configure",
                         href: w(p),
@@ -9209,8 +8705,8 @@ var eF = Fa(Kt => {
             href: "/cgi-bin/luci/admin/system/flash"
         }, "Backup / Flahs")], -1)),
         N7 = _t(() => t("li", null, [t("a", {
-            href: "/cgi-bin/luci/admin/store/pages/maintance"
-        }, "\u63D2\u4EF6\u5907\u4EFD")], -1)),
+            href: "/cgi-bin/luci/admin/system/startup"
+        }, "\u542F\u52A8\u9879")], -1)),
         q7 = {
             class: "item-label"
         },
@@ -10178,7 +9674,7 @@ var eF = Fa(Kt => {
                     },
                     m = () => {
                         var b, _, v, g;
-                        window.open(`${(_=(b=window.quickstart_configs)==null?void 0:b.ttyd)!=null&&_.ssl?"https":"http"}://${window.location.hostname}:${((g=(v=window.quickstart_configs)==null?void 0:v.ttyd)==null?void 0:g.port)||7681}/`, "_blank")
+                        window.open(`${(_=(b=window.dashboard_configs)==null?void 0:b.ttyd)!=null&&_.ssl?"https":"http"}://${window.location.hostname}:${((g=(v=window.dashboard_configs)==null?void 0:v.ttyd)==null?void 0:g.port)||7681}/`, "_blank")
                     };
                 return Vt("sandbox") && S.Nas.GetSandbox.GET().then(_ => {
                     var v, g, k;
@@ -10253,14 +9749,14 @@ var eF = Fa(Kt => {
             }
         }, [t("a", {
             onclick: "void(0)",
-            href: "https://www.istoreos.com/",
+            href: "/cgi-bin/luci/admin/dashboard/",
             target: "_blank",
             style: {
                 "text-decoration": "none",
                 color: "white",
                 "line-height": "1.5em"
             }
-        }, "iStoreOS\u5B98\u7F51")], -1)),
+        }, "Dashboard")], -1)),
         s9 = _e(() => t("em", null, null, -1)),
         d9 = _e(() => t("em", null, null, -1)),
         u9 = _e(() => t("em", null, null, -1)),
@@ -10430,7 +9926,7 @@ var eF = Fa(Kt => {
         nb = St(() => t("span", null, "no WAN port", -1)),
         ib = U(", unable to go through this setup wizard, please see for details "),
         rb = St(() => t("a", {
-            href: "https://doc.linkease.com/zh/guide/istoreos/question.html#%E7%BD%91%E7%BB%9C",
+            href: "/cgi-bin/luci/admin/network/network",
             target: "_blank",
             rel: "noopener noreferrer"
         }, "Link", -1)),
@@ -10623,7 +10119,7 @@ var eF = Fa(Kt => {
         Sb = st(() => t("span", null, "No WAN port", -1)),
         zb = U(", this setup wizard cannot be used, for details, please see "),
         Pb = st(() => t("a", {
-            href: "https://doc.linkease.com/zh/guide/istoreos/question.html#%E7%BD%91%E7%BB%9C",
+            href: "/cgi-bin/luci/admin/network/network",
             target: "_blank",
             rel: "noopener noreferrer"
         }, "Link", -1)),
@@ -12085,7 +11581,7 @@ var eF = Fa(Kt => {
         fh = re(() => t("br", null, null, -1)),
         mh = {
             key: 1,
-            href: "/cgi-bin/luci/admin/quickstart/"
+            href: "/cgi-bin/luci/admin/dashboard/"
         },
         bh = {
             class: "td cbi-section-table-cell nowrap cbi-section-actions"
@@ -13974,7 +13470,7 @@ var eF = Fa(Kt => {
     var Qy = Y(Ky, [
         ["__scopeId", "data-v-589588f0"]
     ]);
-    const tF = () => window.vue_base || "/cgi-bin/luci/admin/quickstart",
+    const tF = () => window.vue_base || "/cgi-bin/luci/admin/dashboard",
         _a = Oa({
             history: Na(tF()),
             routes: [{
