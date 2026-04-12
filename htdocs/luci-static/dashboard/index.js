@@ -293,13 +293,6 @@ var eF = Fa(Kt => {
                     })
                 }
             },
-            CheckUpdate: {
-                GET() {
-                    return I("/system/check-update/", {
-                        method: "GET"
-                    })
-                }
-            },
             Reboot: {
                 POST(e) {
                     return I("/system/reboot/", {
@@ -968,7 +961,6 @@ var eF = Fa(Kt => {
         Ce = Qt("system", {
             state: () => ({
                 version: {},
-                checkUpdate: null,
                 systemStatus: {}
             }),
             getters: {},
@@ -981,12 +973,6 @@ var eF = Fa(Kt => {
                     S.System.Version.GET().then(e => {
                         var a;
                         (a = e == null ? void 0 : e.data) != null && a.result && (this.version = e.data.result)
-                    })
-                },
-                requestCheckUpdate() {
-                    S.System.CheckUpdate.GET().then(e => {
-                        var a;
-                        (a = e == null ? void 0 : e.data) != null && a.result && (this.checkUpdate = e.data.result)
                     })
                 },
                 updateSystemStatus(e) {
@@ -1034,6 +1020,7 @@ var eF = Fa(Kt => {
         for (const [n, s] of a) o[n] = s;
         return o
     };
+    const dashboardFeatureEnabled = e => !Array.isArray(window.dashboard_features) || window.dashboard_features.indexOf(e) != -1;
     const to = P({
         setup(e) {
             const a = Ke(),
@@ -4855,7 +4842,7 @@ var eF = Fa(Kt => {
         sl = fe(() => t("div", {
             class: "value-data"
         }, [t("a", {
-            href: "/cgi-bin/luci/admin/nas/smart"
+            href: (window.vue_base || "/cgi-bin/luci/admin/dashboard/") + "smart"
         }, [t("span", {
             class: "error"
         }, " S.M.A.R.T Exception")])], -1)),
@@ -5061,27 +5048,20 @@ var eF = Fa(Kt => {
         },
         Ol = {
             class: "more_icon",
-            title: "查看磁盘管理信息"
+            title: "查看磁盘工具"
         },
         Nl = {
             class: "DeviceBlock"
         },
-        // ql = ee(() => t("ul", null, [t("li", null, [t("a", {
-        //     href: "/cgi-bin/luci/admin/nas/raid"
-        // }, "RAID\u7BA1\u7406")]), t("li", null, [t("a", {
-        //     href: "/cgi-bin/luci/admin/nas/smart"
-        // }, "S.M.A.R.T.")]), t("li", null, [t("a", {
-        //     href: "/cgi-bin/luci/admin/system/diskman"
-        // }, "\u78C1\u76D8\u7BA1\u7406")]), t("li", null, [t("a", {
-        //     href: "/cgi-bin/luci/admin/system/mounts"
-        // }, "\u6302\u8F7D\u70B9")])], -1)),
+        diskmanFeature = dashboardFeatureEnabled("diskman"),
+        mountsFeature = dashboardFeatureEnabled("system_mounts"),
         ql = ee(() => t("ul", null, [t("li", null, [t("a", {
-            href: "/cgi-bin/luci/admin/nas/smart"
-        }, "S.M.A.R.T")]), t("li", null, [t("a", {
+            href: (window.vue_base || "/cgi-bin/luci/admin/dashboard/") + "smart"
+        }, "S.M.A.R.T")]), diskmanFeature ? t("li", null, [t("a", {
             href: "/cgi-bin/luci/admin/system/diskman"
-        }, "磁盘管理")]), t("li", null, [t("a", {
+        }, "磁盘管理")]) : C("", !0), mountsFeature ? t("li", null, [t("a", {
             href: "/cgi-bin/luci/admin/system/mounts"
-        }, "挂载点")])], -1)),
+        }, "挂载点")]) : C("", !0)], 64)),
         Vl = {
             key: 0
         },
@@ -5444,9 +5424,9 @@ var eF = Fa(Kt => {
         },
         U1 = Ae(() => t("div", {
             class: "action-msg"
-        }, [t("span", null, [U(" \u60F3\u8981\u66F4\u7CBE\u786E\u7684\u914D\u7F6E\uFF1F\u8BF7\u524D\u5F80 "), t("a", {
+        }, [diskmanFeature ? t("span", null, [U(" 想要更精确的配置？请前往 "), t("a", {
             href: "/cgi-bin/luci/admin/system/diskman"
-        }, "\u9AD8\u7EA7\u8BBE\u7F6E")])], -1)),
+        }, "高级设置")]) : t("span", null, "需要更精确的磁盘配置时，请使用系统菜单中的存储页面。")], 64)),
         W1 = Ae(() => t("div", {
             class: "auto"
         }, null, -1)),
@@ -6085,7 +6065,7 @@ var eF = Fa(Kt => {
                 Close: n
             }
         };
-    const Vt = e => !Array.isArray(window.dashboard_features) || window.dashboard_features.indexOf(e) != -1,
+    const Vt = dashboardFeatureEnabled,
         Ut = e => (O("data-v-650e3bd4"), e = e(), N(), e),
         n2 = {
             key: 0,
@@ -6864,9 +6844,10 @@ var eF = Fa(Kt => {
         s5 = {
             class: "DeviceBlock"
         },
-        d5 = fa(() => t("ul", null, [t("li", null, [t("a", {
+        dockerOverviewFeature = dashboardFeatureEnabled("docker_overview"),
+        d5 = fa(() => t("ul", null, dockerOverviewFeature ? [t("li", null, [t("a", {
             href: "/cgi-bin/luci/admin/docker/overview"
-        }, "Advanced Config")])], -1)),
+        }, "Advanced Config")])] : [], 64)),
         u5 = {
             key: 1,
             class: "loading_placeholder"
@@ -6907,7 +6888,7 @@ var eF = Fa(Kt => {
                         key: 0,
                         class: "app-container_configure",
                         onClick: c
-                    }, "快速配置")) : C("", !0), ((b = o.value) == null ? void 0 : b.status) === "running" ? (i(), r("span", r5, [D($t, {
+                    }, "快速配置")) : C("", !0), dockerOverviewFeature && ((b = o.value) == null ? void 0 : b.status) != "not installed" ? (i(), r("span", r5, [D($t, {
                         onClick: s
                     })])) : C("", !0)])) : C("", !0), z(t("div", s5, [t("div", {
                         class: "menu_background",
@@ -9624,21 +9605,6 @@ var eF = Fa(Kt => {
             class: "nav-container"
         },
         Zm = ["onClick"],
-        Jm = {
-            key: 1,
-            class: "btn_styles color3 app-update-button",
-            onclick: "window.location.href='/cgi-bin/luci/admin/system/ota'"
-        },
-        Xm = U(" \u56FA\u4EF6\u66F4\u65B0 "),
-        Km = {
-            key: 0,
-            style: {
-                display: "inline-block"
-            }
-        },
-        Qm = {
-            key: 1
-        },
         t9 = ["disabled"],
         e9 = U(" DNS 配置 "),
         a9 = {
@@ -9649,8 +9615,7 @@ var eF = Fa(Kt => {
         },
         o9 = P({
             setup(e) {
-                const a = Ce(),
-                    o = le(),
+                const o = le(),
                     n = R(() => o.status);
                 y(!1), y(!0);
                 const s = y(),
@@ -9680,7 +9645,7 @@ var eF = Fa(Kt => {
                     var v, g, k;
                     _ != null && _.data && ((((v = _ == null ? void 0 : _.data) == null ? void 0 : v.success) || 0) == 0 ? (g = _ == null ? void 0 : _.data) != null && g.result && (s.value = _.data.result) : (k = _ == null ? void 0 : _.data) != null && k.error && alert(_.data.error))
                 }).catch(_ => F.Warning(_)), (b, _) => {
-                    var k, x, E, A, B, $;
+                    var x, E, A, B, $;
                     const v = X("router-link"),
                         g = X("icon-loading");
                         return i(), r("div", Hm, [D(v, {
@@ -9694,15 +9659,7 @@ var eF = Fa(Kt => {
                                 onClick: q
                             }, "网络接口", 8, Zm)]),
                             _: 1
-                        }), //w(Vt)("ttyd") ? (i(), r("button", {
-                            //key: 0,
-                            //class: "btn_styles color2 app-btn-ttyd",
-                            //onClick: m
-                        //}, "Terminal")) : C("", !0), false ? (i(), r("button", Jm, [Xm, w(a).checkUpdate == null ? (i(), r("span", Km, [D(g, {
-                        false ? (i(), r("button", Jm, [Xm, w(a).checkUpdate == null ? (i(), r("span", Km, [D(g, {
-                            size: "0.8em",
-                            color: "currentColor"
-                        })])) : (k = w(a).checkUpdate) != null && k.needUpdate ? (i(), r("i", Qm)) : C("", !0)])) : C("", !0), t("button", {
+                        }), t("button", {
                             class: "btn_styles color4",
                             onClick: l
                         }, "内网测速"), t("button", {
@@ -11645,7 +11602,7 @@ var eF = Fa(Kt => {
                     },
                     d = v => T(this, null, function* () {
                         if (v.childrens && v.childrens.length > 0 && v.childrens.filter(x => x.mountPoint).length > 0) {
-                            de({
+                            de(mountsFeature ? {
                                 content: "\u5220\u9664 RAID \u8BBE\u5907\u4E4B\u524D\u8BF7\u5148\u5378\u8F7D\u6587\u4EF6\u7CFB\u7EDF",
                                 nextTitle: "\u53BB\u5378\u8F7D",
                                 next: () => {
@@ -11653,6 +11610,10 @@ var eF = Fa(Kt => {
                                 },
                                 clearTitle: "\u53D6\u6D88",
                                 clear: () => {}
+                            } : {
+                                content: "\u5220\u9664 RAID \u8BBE\u5907\u4E4B\u524D\u8BF7\u5148\u5378\u8F7D\u6587\u4EF6\u7CFB\u7EDF\u3002\u5F53\u524D\u7CFB\u7EDF\u672A\u68C0\u6D4B\u5230\u201C\u6302\u8F7D\u70B9\u201D\u9875\u9762\uFF0C\u8BF7\u4ECE\u7CFB\u7EDF\u83DC\u5355\u624B\u52A8\u5378\u8F7D\u540E\u518D\u8BD5\u3002",
+                                nextTitle: "\u77E5\u9053\u4E86",
+                                next: () => {}
                             });
                             return
                         }

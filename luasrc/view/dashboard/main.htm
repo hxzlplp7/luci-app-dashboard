@@ -10,6 +10,20 @@
   end
   local features = { "_lua_force_array_" }
   local configs = {}
+  local function has_any_file(paths)
+    for _, path in ipairs(paths or {}) do
+      if fs.stat(path) then
+        return true
+      end
+    end
+    return false
+  end
+  local function has_menu_path(path)
+    if not path or path == "" or not fs.stat("/usr/share/luci/menu.d") then
+      return false
+    end
+    return luci.sys.call(string.format("grep -qsrF %q /usr/share/luci/menu.d 2>/dev/null", path)) == 0
+  end
   local i18n_map = {
     ["Network Config"] = i18n.translate("Network Config"),
     ["Network Interface"] = i18n.translate("Network Interface"),
@@ -74,6 +88,28 @@
   local css_stat = fs.stat("/www/luci-static/dashboard/style.css")
   if luci.sys.call("[ -e /etc/init.d/dockerd ] >/dev/null 2>&1") == 0 then
       features[#features+1] = "dockerd"
+  end
+  if has_menu_path("admin/docker/overview") or has_any_file({
+      "/usr/share/luci/menu.d/luci-app-dockerman.json",
+      "/usr/lib/lua/luci/controller/dockerman.lua",
+      "/usr/lib/lua/luci/controller/docker.lua",
+      "/usr/lib/lua/luci/controller/admin/docker.lua"
+  }) then
+      features[#features+1] = "docker_overview"
+  end
+  if has_menu_path("admin/system/diskman") or has_any_file({
+      "/usr/share/luci/menu.d/luci-app-diskman.json",
+      "/usr/lib/lua/luci/controller/diskman.lua",
+      "/usr/lib/lua/luci/model/cbi/admin_system/diskman.lua",
+      "/usr/lib/lua/luci/model/cbi/diskman/disks.lua"
+  }) then
+      features[#features+1] = "diskman"
+  end
+  if has_menu_path("admin/system/mounts") or has_any_file({
+      "/usr/lib/lua/luci/model/cbi/admin_system/mounts.lua",
+      "/usr/lib/lua/luci/view/admin_system/mounts.htm"
+  }) then
+      features[#features+1] = "system_mounts"
   end
   if luci.sys.call("/etc/init.d/ttyd running >/dev/null 2>&1") == 0 then
       features[#features+1] = "ttyd"
