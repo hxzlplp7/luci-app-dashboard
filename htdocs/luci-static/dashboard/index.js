@@ -1063,7 +1063,7 @@ var eF = Fa(Kt => {
                 style: It(w(s)),
                 onMouseenter: p,
                 onMouseleave: f
-            }, [t("div", null, h(c(w(o).duplex)), 1), t("div", null, "Name\uFF1A" + h(w(o).name || "--"), 1), t("div", null, "MAC\uFF1A" + h(w(o).macAddress || "--"), 1), t("div", null, "Down\uFF1A" + h(w(o).rx_packets || "--"), 1), t("div", null, "Up\uFF1A" + h(w(o).tx_packets || "--"), 1)], 36)) : C("", !0)
+            }, [t("div", null, h(c(w(o).duplex)), 1), t("div", null, "名称：" + h(w(o).name || "--"), 1), t("div", null, "MAC 地址：" + h(w(o).macAddress || "--"), 1), t("div", null, "下行流量：" + h(w(o).rx_packets || "--"), 1), t("div", null, "上行流量：" + h(w(o).tx_packets || "--"), 1)], 36)) : C("", !0)
         }
     });
     var eo = Y(to, [
