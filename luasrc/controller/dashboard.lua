@@ -1,195 +1,129 @@
+-- Dashboard Controller
+-- Replaces the original reverse proxy (port 3038) with direct Lua API handlers
+-- All API endpoints return JSON: {"success": 200, "result": {...}}
+
 local http = require "luci.http"
-local nixio = require "nixio"
-local ltn12 = require "luci.ltn12"
-local table = require "table"
 local util = require "luci.util"
 
 module("luci.controller.dashboard", package.seeall)
 
-local BLOCKSIZE = 2048
-local BACKEND_PORT = 3038
-local LEGACY_API_ROOT = "/cgi-bin/luci/" .. string.char(105, 115, 116, 111, 114, 101)
-
 function index()
     entry({"admin", "dashboard"}, template("dashboard/home"), _("Dashboard"), 1).leaf = true
-    entry({"dashboard-api"}, call("dashboard_backend")).leaf = true
+    entry({"dashboard-api"}, call("dashboard_api")).leaf = true
 end
 
-local function sink_socket(sock, io_err)
-    if sock then
-        return function(chunk)
-            if not chunk then
-                return 1
-            else
-                return sock:send(chunk)
-            end
-        end
-    else
-        return ltn12.sink.error(io_err or "unable to send socket")
-    end
-end
+-- ========== Session Validation ==========
 
-local function session_retrieve(sid, allowed_users)
-    local sdat = util.ubus("session", "get", { ubus_rpc_session = sid })
-    if type(sdat) == "table" and
-        type(sdat.values) == "table" and
-        type(sdat.values.token) == "string" and
-        (not allowed_users or util.contains(allowed_users, sdat.values.username))
-    then
-        return sid, sdat.values
-    end
-    return nil, nil
-end
-
-local function get_session()
-    local sid
-    local sdat
+local function check_session()
+    local sdat, sid
     for _, key in ipairs({"sysauth_https", "sysauth_http", "sysauth"}) do
         sid = http.getcookie(key)
         if sid then
-            sid, sdat = session_retrieve(sid, nil)
-            if sid and sdat then
-                return sid, sdat
+            sdat = util.ubus("session", "get", { ubus_rpc_session = sid })
+            if type(sdat) == "table" and
+               type(sdat.values) == "table" and
+               type(sdat.values.token) == "string" then
+                return sid, sdat.values
             end
         end
     end
     return nil, nil
 end
 
-local function chunksource(sock, buffer)
-    buffer = buffer or ""
-    return function()
-        local output
-        local _, endp, count = buffer:find("^([0-9a-fA-F]+);?.-\r\n")
-        while not count and #buffer <= BLOCKSIZE do
-            local newblock, code = sock:recv(BLOCKSIZE - #buffer)
-            if not newblock then
-                return nil, code
-            end
-            buffer = buffer .. newblock
-            _, endp, count = buffer:find("^([0-9a-fA-F]+);?.-\r\n")
-        end
-        count = tonumber(count, 16)
-        if not count then
-            return nil, -1, "invalid encoding"
-        elseif count == 0 then
-            return nil
-        elseif count + 2 <= #buffer - endp then
-            output = buffer:sub(endp + 1, endp + count)
-            buffer = buffer:sub(endp + count + 3)
-            return output
-        else
-            output = buffer:sub(endp + 1, endp + count)
-            buffer = ""
-            if count - #output > 0 then
-                local remain, code = sock:recvall(count - #output)
-                if not remain then
-                    return nil, code
-                end
-                output = output .. remain
-                count, code = sock:recvall(2)
-            else
-                count, code = sock:recvall(count + 2 - #buffer + endp)
-            end
-            if not count then
-                return nil, code
-            end
-            return output
-        end
-    end
-end
+-- ========== Route Table ==========
 
-function dashboard_backend()
-    local sock = nixio.connect("127.0.0.1", BACKEND_PORT)
-    if not sock then
-        http.status(500, "connect failed")
+local routes = {
+    -- P0: Core Dashboard APIs
+    ["GET:/u/network/status/"]         = {"api_network", "status"},
+    ["GET:/u/network/statistics/"]     = {"api_network", "statistics"},
+    ["GET:/network/device/list/"]      = {"api_network", "device_list"},
+    ["GET:/network/port/list/"]        = {"api_network", "port_list"},
+    ["GET:/network/interface/config/"] = {"api_network", "interface_config_get"},
+    ["POST:/network/interface/config/"]= {"api_network", "interface_config_post"},
+    ["POST:/network/checkPublicNet/"]  = {"api_network", "check_public_net"},
+
+    ["GET:/system/status/"]            = {"api_system", "status"},
+    ["GET:/u/system/version/"]         = {"api_system", "version"},
+    ["GET:/system/check-update/"]      = {"api_system", "check_update"},
+    ["POST:/system/reboot/"]           = {"api_system", "reboot"},
+
+    -- P1: Guide / Wizard APIs
+    ["GET:/guide/pppoe/"]              = {"api_guide", "pppoe_get"},
+    ["POST:/guide/pppoe/"]             = {"api_guide", "pppoe_post"},
+    ["GET:/guide/dns-config/"]         = {"api_guide", "dns_config_get"},
+    ["POST:/guide/dns-config/"]        = {"api_guide", "dns_config_post"},
+    ["POST:/guide/dhcp-client/"]       = {"api_guide", "dhcp_client_post"},
+    ["GET:/guide/client-mode/"]        = {"api_guide", "client_mode_get"},
+    ["POST:/guide/client-mode/"]       = {"api_guide", "client_mode_post"},
+    ["POST:/guide/gateway-router/"]    = {"api_guide", "gateway_router_post"},
+    ["GET:/guide/lan/"]                = {"api_guide", "lan_get"},
+    ["POST:/guide/lan/"]               = {"api_guide", "lan_post"},
+    ["GET:/guide/soft-source/"]        = {"api_guide", "soft_source_get"},
+    ["POST:/guide/soft-source/"]       = {"api_guide", "soft_source_post"},
+    ["GET:/guide/soft-source/list/"]   = {"api_guide", "soft_source_list"},
+    ["GET:/u/guide/ddns/"]             = {"api_guide", "ddns_get"},
+    ["POST:/u/guide/ddns/"]            = {"api_guide", "ddns_post"},
+
+    -- Docker management (preserved per user request)
+    ["GET:/guide/docker/status/"]          = {"api_guide", "docker_status"},
+    ["GET:/guide/docker/partition/list/"]  = {"api_guide", "docker_partition_list"},
+    ["POST:/guide/docker/transfer/"]       = {"api_guide", "docker_transfer"},
+    ["POST:/guide/docker/switch/"]         = {"api_guide", "docker_switch"},
+
+    -- Download service status
+    ["GET:/guide/download-service/status/"] = {"api_guide", "download_service_status"},
+
+    -- P2: NAS basics
+    ["GET:/nas/disk/status/"]          = {"api_nas", "disk_status"},
+    ["GET:/u/nas/service/status/"]     = {"api_nas", "service_status"},
+}
+
+-- ========== API Dispatcher ==========
+
+function dashboard_api()
+    -- Validate session
+    local sid, sdat = check_session()
+    if not sid then
+        http.prepare_content("application/json")
+        http.write('{"success":-1001,"error":"Forbidden"}')
         return
     end
 
+    -- Parse request
     local request_uri = http.getenv("REQUEST_URI") or ""
-    request_uri = request_uri:gsub("^/cgi%-bin/luci/dashboard%-api", LEGACY_API_ROOT, 1)
+    local method = http.getenv("REQUEST_METHOD") or "GET"
 
-    local input = {}
-    input[#input + 1] = http.getenv("REQUEST_METHOD") .. " " .. request_uri .. " HTTP/1.1"
-
-    local req = http.context.request
-    local start = "HTTP_"
-    local start_len = string.len(start)
-    local ctype = http.getenv("CONTENT_TYPE")
-    if ctype then
-        input[#input + 1] = "Content-Type: " .. ctype
+    -- Extract API path after "dashboard-api"
+    local api_path = request_uri:match("/dashboard%-api(/.*)") or "/"
+    -- Remove query string
+    api_path = api_path:gsub("%?.*$", "")
+    -- Normalize trailing slash
+    if not api_path:match("/$") then
+        api_path = api_path .. "/"
     end
 
-    for k, v in pairs(req.message.env) do
-        if string.sub(k, 1, start_len) == start and not string.find(k, "FORWARDED") then
-            input[#input + 1] = string.sub(k, start_len + 1, string.len(k)) .. ": " .. v
-        end
-    end
+    -- Lookup route
+    local route_key = method .. ":" .. api_path
+    local route = routes[route_key]
 
-    local sid, sdat = get_session()
-    if sdat ~= nil then
-        input[#input + 1] = "X-Forwarded-Sid: " .. sid
-        input[#input + 1] = "X-Forwarded-Token: " .. sdat.token
-    end
+    if route then
+        local module_name = "luci.dashboard." .. route[1]
+        local func_name = route[2]
 
-    local num = tonumber(http.getenv("CONTENT_LENGTH")) or 0
-    input[#input + 1] = "Content-Length: " .. tostring(num)
-    input[#input + 1] = "\r\n"
-
-    local source = ltn12.source.cat(ltn12.source.string(table.concat(input, "\r\n")), http.source())
-    local ret = ltn12.pump.all(source, sink_socket(sock, "write sock error"))
-    if ret ~= 1 then
-        sock:close()
-        http.status(500, "proxy error")
-        return
-    end
-
-    local linesrc = sock:linesource()
-    local line = linesrc()
-    if not line then
-        sock:close()
-        http.status(500, "response parse failed")
-        return
-    end
-
-    local protocol, status, msg = line:match("^([%w./]+) ([0-9]+) (.*)")
-    if not protocol then
-        sock:close()
-        http.status(500, "response protocol error")
-        return
-    end
-
-    num = tonumber(status) or 0
-    http.status(num, msg)
-
-    local chunked = 0
-    line = linesrc()
-    while line and line ~= "" do
-        local key, val = line:match("^([%w-]+)%s?:%s?(.*)")
-        if key and key ~= "Status" then
-            if key == "Transfer-Encoding" and val == "chunked" then
-                chunked = 1
+        local ok, mod = pcall(require, module_name)
+        if ok and mod and type(mod[func_name]) == "function" then
+            local success, err = pcall(mod[func_name])
+            if not success then
+                http.prepare_content("application/json")
+                http.write('{"success":500,"error":"' .. tostring(err):gsub('"', '\\"') .. '"}')
             end
-            if key ~= "Connection" and key ~= "Transfer-Encoding" and key ~= "Content-Length" then
-                http.header(key, val)
-            end
+        else
+            http.prepare_content("application/json")
+            http.write('{"success":500,"error":"Module load failed: ' .. tostring(mod) .. '"}')
         end
-        line = linesrc()
-    end
-
-    if not line then
-        sock:close()
-        http.status(500, "parse header failed")
-        return
-    end
-
-    local body_buffer = linesrc(true)
-    if chunked == 1 then
-        ltn12.pump.all(chunksource(sock, body_buffer), http.write)
     else
-        local body_source = ltn12.source.cat(ltn12.source.string(body_buffer), sock:blocksource())
-        ltn12.pump.all(body_source, http.write)
+        -- Unsupported endpoint: return empty success for graceful degradation
+        http.prepare_content("application/json")
+        http.write('{"success":200,"result":{}}')
     end
-
-    sock:close()
 end

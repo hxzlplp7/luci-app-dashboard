@@ -3,9 +3,6 @@
   local jsonc = require "luci.jsonc"
   local features = { "_lua_force_array_" }
   local configs = {}
-  if luci.sys.call("which ota >/dev/null 2>&1 && ota >/dev/null 2>&1") == 0 then
-      features[#features+1] = "ota"
-  end
   if luci.sys.call("[ -e /etc/init.d/dockerd ] >/dev/null 2>&1") == 0 then
       features[#features+1] = "dockerd"
   end
