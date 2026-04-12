@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-dashboard
-PKG_VERSION:=1.0.2-20230817
+PKG_VERSION:=1.0.3-20260412
 PKG_MAINTAINER:=dashboard-community
 
 LUCI_TITLE:=LuCI support for Dashboard
