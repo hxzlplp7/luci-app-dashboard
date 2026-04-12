@@ -1991,7 +1991,7 @@ var eF = Fa(Kt => {
                         }
                     },
                     series: [{
-                        name: "Down",
+                        name: "下载",
                         data: s.value,
                         type: "line",
                         smooth: !0,
@@ -2013,7 +2013,7 @@ var eF = Fa(Kt => {
                             }
                         }
                     }, {
-                        name: "Up",
+                        name: "上传",
                         data: n.value,
                         type: "line",
                         smooth: !0,
@@ -2079,13 +2079,13 @@ var eF = Fa(Kt => {
                             const g = () => T(this, null, function* () {
                                 m != null && (yield f(), m != null && (_.setOption({
                                     series: [{
-                                        name: "Down",
+                                        name: "下载",
                                         data: s.value,
                                         type: "line",
                                         areaStyle: {},
                                         smooth: !0
                                     }, {
-                                        name: "Up",
+                                        name: "上传",
                                         data: n.value,
                                         type: "line",
                                         areaStyle: {},
@@ -2102,7 +2102,7 @@ var eF = Fa(Kt => {
                     ref_key: "el",
                     ref: u,
                     class: "echart"
-                }, null, 512), t("div", Li, [w(c) ? (i(), r("span", Mi, "Up: " + h(w(c)), 1)) : C("", !0), w(p) ? (i(), r("span", Oi, "Down: " + h(w(p)), 1)) : C("", !0)])]))
+                }, null, 512), t("div", Li, [w(c) ? (i(), r("span", Mi, "上传: " + h(w(c)), 1)) : C("", !0), w(p) ? (i(), r("span", Oi, "下载: " + h(w(p)), 1)) : C("", !0)])]))
             }
         });
     var qi = Y(Ni, [
@@ -3535,7 +3535,7 @@ var eF = Fa(Kt => {
         },
         Ed = ut(() => t("li", null, [t("a", {
             href: "/cgi-bin/luci/admin/status/routes"
-        }, "Device Routing")], -1)),
+        }, "设备路由")], -1)),
         Cd = {
             class: "app-container_status-container_body"
         },
@@ -4146,7 +4146,7 @@ var eF = Fa(Kt => {
                             return
                         }
                         if (x) {
-                            if (!confirm(`WARNING: This operation will initialize ${x.venderModel} hard disk and create partitions, please operate with caution`) || !confirm("Are you sure to initialize?")) return;
+                            if (!confirm(`WARNING: This operation will initialize ${x.venderModel} hard disk and create partitions, please operate with caution`) || !confirm("确定要初始化吗？")) return;
                             v(x);
                             return
                         }
@@ -4710,7 +4710,7 @@ var eF = Fa(Kt => {
                     f = R(() => a.part.filesystem == "Free Space"),
                     d = R(() => {
                         const l = a.part.mountPoint ? a.part.mountPoint : "";
-                        return "/cgi-bin/luci/admin/nas/tinyfilemanager" + (l ? "#" + encodeURIComponent(l) : "")
+                        return "/cgi-bin/luci/admin/system/filebrowser" + (l ? "#" + encodeURIComponent(l) : "")
                     });
                 return (l, u) => {
                     var b;
@@ -5153,7 +5153,7 @@ var eF = Fa(Kt => {
                         a.value = !a.value
                     },
                     p = () => {
-                        location.href = "/cgi-bin/luci/admin/nas/tinyfilemanager"
+                        location.href = "/cgi-bin/luci/admin/system/filebrowser"
                     };
                 return (f, d) => {
                     var m, b;
@@ -5235,7 +5235,7 @@ var eF = Fa(Kt => {
                         title: c.path
                     }, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent(c.path)
+                        href: "/cgi-bin/luci/admin/system/filebrowser#" + encodeURIComponent(c.path)
                     }, h(c.path), 9, l1)], 8, u1)]))), 256))])
                 }
             }
@@ -5301,7 +5301,7 @@ var eF = Fa(Kt => {
                     var c, p, f, d, l, u, m;
                     return i(), r(L, null, [t("li", f1, [m1, t("div", b1, [t("span", null, h((c = e.webdav) != null && c.path ? "\u5DF2\u542F\u7528" : "\u672A\u542F\u7528"), 1)])]), (p = e.webdav) != null && p.path ? (i(), r("li", v1, [g1, t("div", _1, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent((f = e.webdav) == null ? void 0 : f.path)
+                        href: "/cgi-bin/luci/admin/system/filebrowser#" + encodeURIComponent((f = e.webdav) == null ? void 0 : f.path)
                     }, h((d = e.webdav) == null ? void 0 : d.path), 9, h1)])])) : C("", !0), (l = e.webdav) != null && l.port ? (i(), r("li", x1, [k1, t("div", w1, [t("a", {
                         href: w(o),
                         target: "_blank",
@@ -6257,12 +6257,12 @@ var eF = Fa(Kt => {
         },
         D2 = ["href"],
         B2 = Se(() => t("div", null, [t("a", {
-            href: "/cgi-bin/luci/admin/nas/tinyfilemanager",
+            href: "/cgi-bin/luci/admin/system/filebrowser",
             target: "_blank"
         }, "\u6253\u5F00\u5185\u7F6E\u6587\u4EF6\u7BA1\u7406\u5668\uFF0C\u7EDF\u4E00\u67E5\u770B\u548C\u7EF4\u62A4\u5171\u4EAB\u76EE\u5F55")], -1)),
         Y2 = P({
             setup(e) {
-                const o = "/cgi-bin/luci/admin/nas/tinyfilemanager",
+                const o = "/cgi-bin/luci/admin/system/filebrowser",
                     n = () => {
                         location.href = o
                     };
@@ -6537,20 +6537,20 @@ var eF = Fa(Kt => {
         },
         _6 = pt(() => t("div", {
             class: "title"
-        }, "Docker Migration Wizard", -1)),
+        }, "Docker 迁移向导", -1)),
         h6 = pt(() => t("div", {
             class: "desc"
-        }, "When system root directory space is insufficient, docker root directory can be migrated to external hard disk to ensure normal operation of docker system.", -1)),
+        }, "当系统根目录空间不足时，可以将 Docker 根目录迁移到外部硬盘，以确保 Docker 系统的正常运行。", -1)),
         x6 = {
             key: 1,
             class: "action format"
         },
         k6 = pt(() => t("div", {
             class: "action-header_title"
-        }, "Docker Migration Wizard", -1)),
+        }, "Docker 迁移向导", -1)),
         w6 = pt(() => t("div", {
             class: "migration-docker_desc"
-        }, "When system root directory space is insufficient, docker root directory can be migrated to external hard disk to ensure normal operation of docker system.", -1)),
+        }, "当系统根目录空间不足时，可以将 Docker 根目录迁移到外部硬盘，以确保 Docker 系统的正常运行。", -1)),
         y6 = {
             class: "roots"
         },
@@ -6590,7 +6590,7 @@ var eF = Fa(Kt => {
         },
         I6 = pt(() => t("span", {
             class: "tip"
-        }, "Detected that you have not mounted the external hard disk, you need to connect the hard disk and format or manually mount hard disk, and then execute Docker Migration Wizard fo migrate Docker to the target hard disk.", -1)),
+        }, "检测到您未挂载外部硬盘，您需要连接硬盘并格式化或手动挂载硬盘，然后执行 Docker 迁移向导将 Docker 迁移到目标硬盘。", -1)),
         L6 = {
             key: 0,
             class: "action-footer"
@@ -6624,7 +6624,7 @@ var eF = Fa(Kt => {
         },
         N6 = pt(() => t("div", {
             class: "title"
-        }, "Docker Migration Wizard", -1)),
+        }, "Docker 迁移向导", -1)),
         q6 = {
             class: "finished"
         },
@@ -6637,7 +6637,7 @@ var eF = Fa(Kt => {
         },
         j6 = pt(() => t("div", {
             class: "title"
-        }, "Docker Migration Wizard", -1)),
+        }, "Docker 迁移向导", -1)),
         R6 = {
             class: "finished"
         },
@@ -7009,7 +7009,7 @@ var eF = Fa(Kt => {
                         key: 0
                     }, [t("li", _5, [h5, t("div", x5, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent((d = e.aria2) == null ? void 0 : d.downloadPath)
+                        href: "/cgi-bin/luci/admin/system/filebrowser#" + encodeURIComponent((d = e.aria2) == null ? void 0 : d.downloadPath)
                     }, h((l = e.aria2) == null ? void 0 : l.downloadPath), 9, k5)])]), t("li", w5, [y5, t("div", F5, [t("a", {
                         href: w(o),
                         target: "_blank",
@@ -7091,7 +7091,7 @@ var eF = Fa(Kt => {
                         key: 0
                     }, [t("li", O5, [N5, t("div", q5, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent((f = e.qbittorrent) == null ? void 0 : f.downloadPath)
+                        href: "/cgi-bin/luci/admin/system/filebrowser#" + encodeURIComponent((f = e.qbittorrent) == null ? void 0 : f.downloadPath)
                     }, h((d = e.qbittorrent) == null ? void 0 : d.downloadPath), 9, V5)])]), t("li", G5, [j5, t("div", R5, [t("a", {
                         href: w(o),
                         target: "_blank",
@@ -7162,7 +7162,7 @@ var eF = Fa(Kt => {
                         key: 0
                     }, [t("li", a3, [o3, t("div", n3, [t("a", {
                         target: "_blank",
-                        href: "/cgi-bin/luci/admin/nas/tinyfilemanager#" + encodeURIComponent((f = e.transmission) == null ? void 0 : f.downloadPath)
+                        href: "/cgi-bin/luci/admin/system/filebrowser#" + encodeURIComponent((f = e.transmission) == null ? void 0 : f.downloadPath)
                     }, h((d = e.transmission) == null ? void 0 : d.downloadPath), 9, i3)])]), t("li", r3, [s3, t("div", d3, [t("a", {
                         href: w(o),
                         target: "_blank",
@@ -8712,7 +8712,7 @@ var eF = Fa(Kt => {
         },
         V7 = _t(() => t("div", {
             class: "item-label_key"
-        }, [t("span", null, "CPU Heat")], -1)),
+        }, [t("span", null, "CPU 温度")], -1)),
         G7 = {
             class: "item-label_value"
         },
@@ -8721,7 +8721,7 @@ var eF = Fa(Kt => {
         },
         R7 = _t(() => t("div", {
             class: "item-label_key"
-        }, [t("span", null, "CPU Used")], -1)),
+        }, [t("span", null, "CPU 使用率")], -1)),
         U7 = {
             class: "item-label_value"
         },
@@ -8730,7 +8730,7 @@ var eF = Fa(Kt => {
         },
         H7 = _t(() => t("div", {
             class: "item-label_key"
-        }, [t("span", null, "Memory Used")], -1)),
+        }, [t("span", null, "内存使用率")], -1)),
         Z7 = {
             class: "item-label_value"
         },
@@ -8739,7 +8739,7 @@ var eF = Fa(Kt => {
         },
         X7 = _t(() => t("div", {
             class: "item-label_key"
-        }, [t("span", null, "Model")], -1)),
+        }, [t("span", null, "型号")], -1)),
         K7 = {
             class: "item-label_value"
         },
@@ -8748,7 +8748,7 @@ var eF = Fa(Kt => {
         },
         tf = _t(() => t("div", {
             class: "item-label_key"
-        }, [t("span", null, "Firmware")], -1)),
+        }, [t("span", null, "固件")], -1)),
         ef = {
             class: "item-label_value"
         },
@@ -8757,7 +8757,7 @@ var eF = Fa(Kt => {
         },
         of = _t(() => t("div", {
             class: "item-label_key"
-        }, [t("span", null, "Kernel")], -1)),
+        }, [t("span", null, "内核")], -1)),
         nf = {
             class: "item-label_value"
         },
@@ -8766,7 +8766,7 @@ var eF = Fa(Kt => {
         },
         sf = _t(() => t("div", {
             class: "item-label_key"
-        }, [t("span", null, "Uptime")], -1)),
+        }, [t("span", null, "运行时间")], -1)),
         df = {
             class: "item-label_value"
         },
@@ -12416,7 +12416,7 @@ var eF = Fa(Kt => {
         },
         kk = qt(() => t("td", {
             class: "td left"
-        }, "Model", -1)),
+        }, "型号", -1)),
         wk = {
             class: "td left"
         },
@@ -12717,7 +12717,7 @@ var eF = Fa(Kt => {
         }, "Path"), t("th", {
             class: "th cbi-section-table-cell",
             "data-widget": "value"
-        }, "Model"), t("th", {
+        }, "型号"), t("th", {
             class: "th cbi-section-table-cell",
             "data-widget": "value"
         }, "Serial Number"), t("th", {
