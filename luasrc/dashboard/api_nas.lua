@@ -210,7 +210,7 @@ function M.disk_status()
             local path = entry.PATH ~= "" and entry.PATH or ("/dev/" .. entry.NAME)
             local model = (entry.MODEL and entry.MODEL:gsub("^%s+", ""):gsub("%s+$", "")) ~= "" and entry.MODEL:gsub("^%s+", ""):gsub("%s+$", "") or entry.NAME
             local serial = (entry.SERIAL and entry.SERIAL:gsub("^%s+", ""):gsub("%s+$", "")) ~= "" and entry.SERIAL or "N/A"
-            
+
             local disk = {
                 name = entry.NAME,
                 path = path,
@@ -249,7 +249,7 @@ function M.disk_status()
                 local size_bytes = (tonumber(size_str:match("(%d+)")) or 0) * 512
                 local model_raw = u.read_file("/sys/block/" .. name .. "/device/model") or name
                 local model = model_raw:gsub("%s+$", "")
-                
+
                 local disk = {
                     name = name,
                     path = path,
@@ -267,7 +267,7 @@ function M.disk_status()
                 }
                 disks[#disks + 1] = disk
                 disk_map[name] = disk
-                
+
                 -- Simple partition scan for fallback disk
                 local parts = u.exec("ls -1 /dev/" .. name .. "p* 2>/dev/null")
                 for ppath in parts:gmatch("[^\n]+") do
@@ -391,6 +391,37 @@ function M.service_status()
         docker = check_service("dockerd"),
         minidlna = check_service("minidlna")
     })
+end
+
+--- POST /nas/linkease/enable/
+-- Enables Linkease service and returns its port number
+function M.linkease_enable()
+    local port = ""
+    local installed = u.file_exists("/etc/init.d/linkease")
+
+    if installed then
+        -- Try to start the service
+        os.execute("/etc/init.d/linkease start >/dev/null 2>&1")
+
+        -- Try to read port from linkease UCI config
+        local ok, uci_mod = pcall(require, "luci.model.uci")
+        if ok then
+            local cursor = uci_mod.cursor()
+            local p = cursor:get("linkease", "global", "port")
+                   or cursor:get("linkease", "main", "port")
+            if p then
+                port = tostring(p)
+            end
+        end
+
+        -- Fallback: scan for running linkease process port
+        if port == "" then
+            local out = u.exec("netstat -tlnp 2>/dev/null | grep linkease | awk '{print $4}' | awk -F: '{print $NF}' | head -1") or ""
+            port = out:match("(%d+)") or ""
+        end
+    end
+
+    u.json_success({ port = port })
 end
 
 return M

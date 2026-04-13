@@ -2,12 +2,17 @@ name: Build and Release IPK
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*.*.*"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  PKG_NAME: luci-app-dashboard
 
 jobs:
   build:
@@ -21,23 +26,30 @@ jobs:
       - name: Prepare local feed layout
         run: |
           rm -rf .feed
-          mkdir -p .feed/luci-app-dashboard
+          mkdir -p .feed/${{ env.PKG_NAME }}
           rsync -a \
             --exclude '.git' \
             --exclude '.github' \
             --exclude '.feed' \
-            ./ ./.feed/luci-app-dashboard/
+            ./ ./.feed/${{ env.PKG_NAME }}/
 
       - name: Build Package
         uses: openwrt/gh-action-sdk@main
         env:
-          ARCH: x86_64-23.05.5
+          ARCH: x86_64-21.02.7
           FEED_DIR: ${{ github.workspace }}/.feed
-          PACKAGES: luci-app-dashboard
+          PACKAGES: ${{ env.PKG_NAME }}
           NO_REFRESH_CHECK: true
 
-      - name: Upload IPK to Release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PKG_NAME }}-ipk
+          path: bin/packages/*/action/*.ipk
+
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: bin/packages/*/action/*.ipk
+          generate_release_notes: true

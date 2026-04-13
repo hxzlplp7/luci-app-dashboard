@@ -63,6 +63,7 @@ local routes = {
     -- P2: NAS basics
     ["GET:/nas/disk/status/"]          = {"api_nas", "disk_status"},
     ["GET:/u/nas/service/status/"]     = {"api_nas", "service_status"},
+    ["POST:/nas/linkease/enable/"]     = {"api_nas", "linkease_enable"},
 }
 
 -- ========== API Dispatcher ==========
