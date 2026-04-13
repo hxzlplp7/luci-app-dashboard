@@ -144,6 +144,9 @@
       var app = document.getElementById('app');
       window.token = app ? (app.getAttribute('data-token') || '') : '';
       var vue_prefix = app ? (app.getAttribute('data-prefix') || '') : '';
+      if (vue_prefix && vue_prefix.charAt(0) !== '/') vue_prefix = '/' + vue_prefix;
+      if (vue_prefix.slice(-1) === '/') vue_prefix = vue_prefix.slice(0, -1);
+
       var features = app ? (app.getAttribute('data-features') || '[]') : '[]';
       var configs = app ? (app.getAttribute('data-configs') || '{}') : '{}';
       var i18nMap = app ? (app.getAttribute('data-i18n') || '{}') : '{}';
@@ -151,15 +154,20 @@
       window.dashboard_features = JSON.parse(features);
       window.dashboard_configs = JSON.parse(configs);
       window.dashboard_i18n = JSON.parse(i18nMap);
+
       if (location.pathname === vue_prefix + '/network' || location.pathname.indexOf(vue_prefix + '/network/') === 0) {
         location.replace(vue_prefix + '/interfaceconfig');
         return;
       }
-      if (location.pathname != vue_prefix && !location.pathname.startsWith(window.vue_base)) {
+
+      var currentPath = location.pathname;
+      if (currentPath.slice(-1) === '/' && currentPath.length > 1) currentPath = currentPath.slice(0, -1);
+
+      if (currentPath !== vue_prefix && !location.pathname.startsWith(window.vue_base)) {
         if (window.history && window.history.replaceState) {
-          window.history.replaceState({}, null, vue_prefix);
+          window.history.replaceState({}, null, vue_prefix + '/');
         } else {
-          location.href = vue_prefix;
+          location.href = vue_prefix + '/';
         }
       }
 

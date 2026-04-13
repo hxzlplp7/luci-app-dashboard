@@ -8,7 +8,11 @@ local util = require "luci.util"
 module("luci.controller.dashboard", package.seeall)
 
 function index()
-    entry({"admin", "dashboard"}, template("dashboard/home"), _("Dashboard"), 1).leaf = true
+    entry({"admin", "dashboard"}, template("dashboard/home"), _("Dashboard"), 0).leaf = true
+    -- Force the admin root to use our dashboard as its index/landing page
+    local root = entry({"admin"}, alias("admin", "dashboard"), nil, 0)
+    root.index = true
+
     entry({"dashboard-api"}, call("dashboard_api")).leaf = true
 end
 
