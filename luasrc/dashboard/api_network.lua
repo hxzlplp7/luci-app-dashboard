@@ -163,27 +163,12 @@ local function list_netifaces()
 end
 
 local function is_virtual_iface(iface)
+    -- Allow bridge interfaces but exclude common purely virtual ones
     return iface == "lo" or
-        iface:match("^br%-") or
         iface:match("^docker") or
         iface:match("^veth") or
-        iface:match("^wlan") or
-        iface:match("^wwan") or
-        iface:match("^ppp") or
-        iface:match("^pppoe") or
         iface:match("^ifb") or
-        iface:match("^wg") or
-        iface:match("^gre") or
-        iface:match("^gretap") or
-        iface:match("^erspan") or
-        iface:match("^tun") or
-        iface:match("^tap") or
-        iface:match("^sit") or
-        iface:match("^ip6") or
-        iface:match("^bond") or
         iface:match("^dummy") or
-        iface:match("^macvlan") or
-        iface:match("^radio") or
         iface:find("%.", 1, true) ~= nil
 end
 
@@ -679,8 +664,9 @@ function M.device_list()
 
     local arp = u.read_file_all("/proc/net/arp") or ""
     for line in arp:gmatch("[^\n]+") do
-        local ip, _, _, mac, _, iface = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
-        if mac and mac ~= "00:00:00:00:00:00" and ip ~= "IP" then
+        local ip, _, flags, mac, _, iface = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+        -- Flags 0x2 means the ARP entry is valid
+        if mac and mac ~= "00:00:00:00:00:00" and ip ~= "IP" and flags == "0x2" then
             mac = mac:upper()
             add_device(mac, ip, "", 0, iface)
         end

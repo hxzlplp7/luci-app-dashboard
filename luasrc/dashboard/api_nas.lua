@@ -132,6 +132,11 @@ local function should_keep_disk(entry)
         return false
     end
 
+    -- Explicitly keep mmcblk devices (eMMC)
+    if name:match("^mmcblk%d+$") then
+        return true
+    end
+
     if path:find("/dev/mtdblock", 1, true) == 1 or
         path:find("/dev/ubiblock", 1, true) == 1 then
         return false

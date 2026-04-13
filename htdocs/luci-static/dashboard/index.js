@@ -214,7 +214,7 @@ var eF = Fa(Kt => {
                     })
                 }
             },
-            Status: {
+            状态：{
                 GET() {
                     return I("/u/network/status/", {
                         method: "GET"
@@ -304,7 +304,7 @@ var eF = Fa(Kt => {
                     })
                 }
             },
-            Status: {
+            状态：{
                 GET() {
                     return I("/system/status/", {
                         method: "GET"
@@ -314,7 +314,7 @@ var eF = Fa(Kt => {
         },
         Wa = {
             Disk: {
-                Status: {
+                状态：{
                     GET() {
                         return I("/nas/disk/status/", {
                             method: "GET"
@@ -372,7 +372,7 @@ var eF = Fa(Kt => {
                 }
             },
             Service: {
-                Status: {
+                状态：{
                     GET() {
                         return I("/u/nas/service/status/", {
                             method: "GET"
@@ -405,7 +405,7 @@ var eF = Fa(Kt => {
                         })
                     }
                 },
-                Status: {
+                状态：{
                     GET() {
                         return I("/nas/webdav/status/", {
                             method: "GET"
@@ -565,7 +565,7 @@ var eF = Fa(Kt => {
                     })
                 }
             },
-            DockerStatus: {
+            Docker状态：{
                 GET() {
                     return I("/guide/docker/status/", {
                         method: "GET"
@@ -601,8 +601,8 @@ var eF = Fa(Kt => {
                     })
                 }
             },
-            DownloadService: {
-                Status: {
+            下载Service: {
+                状态：{
                     GET() {
                         return I("/guide/download-service/status/", {
                             method: "GET"
@@ -610,7 +610,7 @@ var eF = Fa(Kt => {
                     }
                 }
             },
-            DownloadPartition: {
+            下载Partition: {
                 List: {
                     GET() {
                         return I("/guide/download/partition/list/", {
@@ -961,7 +961,7 @@ var eF = Fa(Kt => {
         Ce = Qt("system", {
             state: () => ({
                 version: {},
-                systemStatus: {}
+                system状态：{}
             }),
             getters: {},
             actions: {
@@ -6372,7 +6372,7 @@ var eF = Fa(Kt => {
         },
         W2 = ve(() => t("span", {
             class: "configure"
-        }, "Not Installed", -1)),
+        }, "未安装", -1)),
         H2 = [W2],
         Z2 = {
             key: 1,
@@ -6423,10 +6423,10 @@ var eF = Fa(Kt => {
                 const a = e,
                     o = R(() => {
                         var p;
-                        return ((p = a.docker) == null ? void 0 : p.status) != "not installed"
+                        return ((p = a.docker) == null ? void 0 : p.status) != "未安装"
                     }),
                     n = it({
-                        enable: ((c = a.docker) == null ? void 0 : c.status) == "running",
+                        enable: ((c = a.docker) == null ? void 0 : c.status) == "运行中",
                         disabled: !1
                     }),
                     s = () => T(this, null, function* () {
@@ -6464,7 +6464,7 @@ var eF = Fa(Kt => {
                         [Lt, w(n).enable]
                     ]), t("span", {
                         class: ot(w(n).enable ? "enable" : "close")
-                    }, Q2, 2)])])) : (i(), r("div", U2, H2))], 64)) : C("", !0)]), ((l = e.docker) == null ? void 0 : l.status) == "running" ? (i(), r("li", t6, [e6, t("div", a6, [t("span", o6, h((u = e.docker) == null ? void 0 : u.path), 1), (m = e.docker) != null && m.errorInfo ? (i(), r("span", n6, [t("span", i6, [t("span", r6, [D(gt)]), t("div", null, [t("div", s6, [t("span", d6, h(e.docker.errorInfo), 1)])])])])) : C("", !0)])])) : C("", !0)])
+                    }, Q2, 2)])])) : (i(), r("div", U2, H2))], 64)) : C("", !0)]), ((l = e.docker) == null ? void 0 : l.status) == "运行中" ? (i(), r("li", t6, [e6, t("div", a6, [t("span", o6, h((u = e.docker) == null ? void 0 : u.path), 1), (m = e.docker) != null && m.errorInfo ? (i(), r("span", n6, [t("span", i6, [t("span", r6, [D(gt)]), t("div", null, [t("div", s6, [t("span", d6, h(e.docker.errorInfo), 1)])])])])) : C("", !0)])])) : C("", !0)])
                 }
             }
         });
@@ -6884,11 +6884,11 @@ var eF = Fa(Kt => {
                         u = X("icon-loading");
                     return i(), r("div", a5, [t("div", o5, [t("span", null, [n5, D(l, {
                         type: "docker"
-                    })]), a.value ? (i(), r("div", i5, [((m = o.value) == null ? void 0 : m.status) != "not installed" ? (i(), r("div", {
+                    })]), a.value ? (i(), r("div", i5, [((m = o.value) == null ? void 0 : m.status) != "未安装" ? (i(), r("div", {
                         key: 0,
                         class: "app-container_configure",
                         onClick: c
-                    }, "快速配置")) : C("", !0), dockerOverviewFeature && ((b = o.value) == null ? void 0 : b.status) != "not installed" ? (i(), r("span", r5, [D($t, {
+                    }, "快速配置")) : C("", !0), dockerOverviewFeature && ((b = o.value) == null ? void 0 : b.status) != "未安装" ? (i(), r("span", r5, [D($t, {
                         onClick: s
                     })])) : C("", !0)])) : C("", !0), z(t("div", s5, [t("div", {
                         class: "menu_background",
@@ -6986,7 +6986,7 @@ var eF = Fa(Kt => {
                     });
                 return (s, c) => {
                     var p, f, d, l;
-                    return i(), r("ul", p5, [t("li", f5, [m5, t("div", b5, [((p = e.aria2) == null ? void 0 : p.status) == "running" ? (i(), r("span", v5, "\u5DF2\u542F\u52A8")) : (i(), r("span", g5, "\u672A\u542F\u52A8"))])]), ((f = e.aria2) == null ? void 0 : f.status) == "running" ? (i(), r(L, {
+                    return i(), r("ul", p5, [t("li", f5, [m5, t("div", b5, [((p = e.aria2) == null ? void 0 : p.status) == "运行中" ? (i(), r("span", v5, "\u5DF2\u542F\u52A8")) : (i(), r("span", g5, "\u672A\u542F\u52A8"))])]), ((f = e.aria2) == null ? void 0 : f.status) == "运行中" ? (i(), r(L, {
                         key: 0
                     }, [t("li", _5, [h5, t("div", x5, [t("a", {
                         target: "_blank",
@@ -7068,7 +7068,7 @@ var eF = Fa(Kt => {
                     });
                 return (n, s) => {
                     var c, p, f, d;
-                    return i(), r("ul", z5, [t("li", P5, [T5, t("div", I5, [((c = e.qbittorrent) == null ? void 0 : c.status) == "running" ? (i(), r("span", L5, "\u5DF2\u542F\u52A8")) : (i(), r("span", M5, "\u672A\u542F\u52A8"))])]), ((p = e.qbittorrent) == null ? void 0 : p.status) == "running" ? (i(), r(L, {
+                    return i(), r("ul", z5, [t("li", P5, [T5, t("div", I5, [((c = e.qbittorrent) == null ? void 0 : c.status) == "运行中" ? (i(), r("span", L5, "\u5DF2\u542F\u52A8")) : (i(), r("span", M5, "\u672A\u542F\u52A8"))])]), ((p = e.qbittorrent) == null ? void 0 : p.status) == "运行中" ? (i(), r(L, {
                         key: 0
                     }, [t("li", O5, [N5, t("div", q5, [t("a", {
                         target: "_blank",
@@ -7139,7 +7139,7 @@ var eF = Fa(Kt => {
                     });
                 return (n, s) => {
                     var c, p, f, d;
-                    return i(), r("ul", J5, [t("li", X5, [K5, t("div", Q5, [((c = e.transmission) == null ? void 0 : c.status) == "running" ? (i(), r("span", t3, "\u5DF2\u542F\u52A8")) : (i(), r("span", e3, "\u672A\u542F\u52A8"))])]), ((p = e.transmission) == null ? void 0 : p.status) == "running" ? (i(), r(L, {
+                    return i(), r("ul", J5, [t("li", X5, [K5, t("div", Q5, [((c = e.transmission) == null ? void 0 : c.status) == "运行中" ? (i(), r("span", t3, "\u5DF2\u542F\u52A8")) : (i(), r("span", e3, "\u672A\u542F\u52A8"))])]), ((p = e.transmission) == null ? void 0 : p.status) == "运行中" ? (i(), r(L, {
                         key: 0
                     }, [t("li", a3, [o3, t("div", n3, [t("a", {
                         target: "_blank",
@@ -7708,7 +7708,7 @@ var eF = Fa(Kt => {
                 const a = y("aria2"),
                     o = y();
                 Qe(), setTimeout(() => {
-                    S.Guide.DownloadService.Status.GET().then(b => {
+                    S.Guide.下载Service.Status.GET().then(b => {
                         var _;
                         if ((_ = b == null ? void 0 : b.data) != null && _.result) {
                             const v = b.data.result;
@@ -7722,7 +7722,7 @@ var eF = Fa(Kt => {
                         c.value = !c.value
                     },
                     f = () => {
-                        S.Guide.DownloadPartition.List.GET().then(b => {
+                        S.Guide.下载Partition.List.GET().then(b => {
                             var v, g;
                             let _ = [];
                             (g = (v = b == null ? void 0 : b.data) == null ? void 0 : v.result) != null && g.partitionList && (_ = b.data.result.partitionList), z4({
@@ -9679,11 +9679,11 @@ var eF = Fa(Kt => {
                             //key: 0,
                             //class: "btn_styles color2",
                             //onClick: d
-                        //}, "\u5F00\u542F\u6C99\u7BB1")) : ((B = s.value) == null ? void 0 : B.status) == "stopped" ? (i(), r("button", {
+                        //}, "\u5F00\u542F\u6C99\u7BB1")) : ((B = s.value) == null ? void 0 : B.status) == "已停止" ? (i(), r("button", {
                             //key: 1,
                             //class: "btn_styles color3",
                             //onClick: p
-                        //}, "\u5F00\u542F\u6C99\u7BB1")) : (($ = s.value) == null ? void 0 : $.status) == "running" ? (i(), r("button", {
+                        //}, "\u5F00\u542F\u6C99\u7BB1")) : (($ = s.value) == null ? void 0 : $.status) == "运行中" ? (i(), r("button", {
                             //key: 2,
                             //class: "btn_styles color4",
                             //onClick: f
@@ -13289,7 +13289,7 @@ var eF = Fa(Kt => {
                                     portName: "",
                                     deviceNames: [],
                                     ports: [],
-                                    firewallType: m
+                                    firewall类型：m
                                 },
                                 next: v => {
                                     m == "wan" ? n.wan.push(v) : n.lan.push(v), F.Message("Please go to the 'Network-Interface' page to configure detailed parameters of the interface")
@@ -13339,7 +13339,7 @@ var eF = Fa(Kt => {
                                 name: v.name,
                                 proto: v.proto,
                                 devices: v.deviceNames || [],
-                                firewallType: v.firewallType
+                                firewall类型：v.firewallType
                             })
                         }
                         for (let _ = 0; _ < n.lan.length; _++) {
@@ -13352,7 +13352,7 @@ var eF = Fa(Kt => {
                                 name: v.name,
                                 proto: v.proto,
                                 devices: v.deviceNames || [],
-                                firewallType: v.firewallType
+                                firewall类型：v.firewallType
                             })
                         }
                         const b = F.Loading("Saving...");
