@@ -144,7 +144,8 @@
       var app = document.getElementById('app');
       window.token = app ? (app.getAttribute('data-token') || '') : '';
       var vue_prefix = app ? (app.getAttribute('data-prefix') || '') : '';
-      if (vue_prefix && vue_prefix.charAt(0) !== '/') vue_prefix = '/' + vue_prefix;
+      if (!vue_prefix || vue_prefix === '') vue_prefix = '/cgi-bin/luci/admin/dashboard';
+      if (vue_prefix.charAt(0) !== '/') vue_prefix = '/' + vue_prefix;
       if (vue_prefix.slice(-1) === '/') vue_prefix = vue_prefix.slice(0, -1);
 
       var features = app ? (app.getAttribute('data-features') || '[]') : '[]';
@@ -161,9 +162,16 @@
       }
 
       var currentPath = location.pathname;
-      if (currentPath.slice(-1) === '/' && currentPath.length > 1) currentPath = currentPath.slice(0, -1);
+      var normalizedPath = currentPath;
+      if (normalizedPath.slice(-1) === '/' && normalizedPath.length > 1) normalizedPath = normalizedPath.slice(0, -1);
 
-      if (currentPath !== vue_prefix && !location.pathname.startsWith(window.vue_base)) {
+      // Detect and fix double-path corruption (e.g., .../dashboard/cgi-bin/luci/)
+      if (currentPath.indexOf(vue_prefix + '/cgi-bin/luci') !== -1) {
+        location.replace(vue_prefix + '/');
+        return;
+      }
+
+      if (normalizedPath !== vue_prefix && !location.pathname.startsWith(window.vue_base)) {
         if (window.history && window.history.replaceState) {
           window.history.replaceState({}, null, vue_prefix + '/');
         } else {
