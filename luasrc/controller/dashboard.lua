@@ -64,7 +64,8 @@ function api_sysinfo()
     local mem_usage = m_tot > 0 and math.floor(((m_tot - m_free) / m_tot) * 100) or 0
     
     -- 安全获取负载
-    local cpu_usage = loadavg[1] and math.min(math.floor(tonumber(loadavg[1]) * 100), 100) or 0
+    local cpu_raw = tonumber(loadavg[1]) or 0
+    local cpu_usage = math.min(math.floor(cpu_raw * 100), 100)
 
     send_json({
         model = model, firmware = firmware, kernel = kernel, temp = temp,
