@@ -6,7 +6,7 @@
 
 <div class="bg-[#f4f6f8] font-sans text-gray-800 min-h-screen">
 
-    <!-- 顶栏 -->
+    <!-- 顶栏 (精简模式) -->
     <div class="flex items-center justify-between px-6 py-3 bg-white shadow-sm mb-6 rounded-xl border border-gray-100">
         <div class="flex items-center space-x-2">
             <div class="text-xl font-bold tracking-wider text-blue-600">
@@ -16,74 +16,129 @@
     </div>
 
     <!-- 主体内容区 -->
-    <div class="max-w-[1400px] mx-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <main class="max-w-[1400px] mx-auto p-6 mt-2 flex flex-col gap-6">
+
+        <!-- 第一排：网络接口状态 (左4) + 实时流量 (右8) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-none">
             
-            <!-- 左侧栏 -->
-            <div class="lg:col-span-4 space-y-6">
-                <!-- 网络状态卡片 -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2">
-                        <i data-lucide="globe" class="text-blue-500 w-[18px] h-[18px]"></i>
-                        <h2 class="font-medium text-gray-700"><%=_("Network Status")%></h2>
+            <!-- 网络状态卡片 -->
+            <div class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+                <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2 flex-none">
+                    <i data-lucide="globe" class="text-blue-500 w-[18px] h-[18px]"></i>
+                    <h2 class="font-medium text-gray-700"><%=_("Network Interface Status")%></h2>
+                </div>
+                <!-- 内部元素均匀分布 -->
+                <div class="p-5 flex-1 flex flex-col justify-evenly">
+                    <div class="flex justify-between items-center">
+                        <div class="text-sm text-gray-500"><%=_("WAN IP")%></div>
+                        <div class="font-medium text-gray-800 flex items-center" id="wan-container">
+                            <span id="wan-status-dot" class="w-2 h-2 rounded-full bg-green-500 mr-2 shadow-[0_0_8px_rgba(34,197,94,0.6)] hidden"></span>
+                            <span id="wan-ip">-</span>
+                        </div>
                     </div>
-                    <div class="p-5 space-y-5">
-                        <div class="flex justify-between items-center">
-                            <div class="text-sm text-gray-500"><%=_("WAN IPv4")%></div>
-                            <div class="font-medium text-gray-800 flex items-center" id="wan-container">
-                                <span id="wan-status-dot" class="w-2 h-2 rounded-full bg-green-500 mr-2 shadow-[0_0_8px_rgba(34,197,94,0.6)] hidden"></span>
-                                <span id="wan-ip">-</span>
-                            </div>
+                    <div class="flex justify-between items-center">
+                        <div class="text-sm text-gray-500"><%=_("Public IP")%></div>
+                        <div class="font-medium text-gray-800 flex items-center">
+                            <span id="public-ip">-</span>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <div class="text-sm text-gray-500"><%=_("LAN IP")%></div>
-                            <div class="font-medium text-gray-800" id="lan-ip">-</div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="text-sm text-gray-500"><%=_("LAN IP")%></div>
+                        <div class="font-medium text-gray-800" id="lan-ip">-</div>
+                    </div>
+                    <div class="flex justify-between items-start">
+                        <div class="text-sm text-gray-500"><%=_("DNS")%><span class="text-xs ml-1">(<%=_("Auto")%>)</span></div>
+                        <div class="font-medium text-gray-800 text-right text-sm leading-tight" id="dns-servers">-</div>
+                    </div>
+                    <div class="flex justify-between items-center border-t border-gray-50 pt-4 mt-2">
+                        <div class="text-sm text-gray-500 flex items-center">
+                            <i data-lucide="activity" class="w-[14px] h-[14px] mr-1"></i> <%=_("Network Connected")%>
                         </div>
-                        <div class="flex justify-between items-center border-t border-gray-50 pt-4 mt-2">
-                            <div class="text-sm text-gray-500 flex items-center">
-                                <i data-lucide="activity" class="w-[14px] h-[14px] mr-1"></i> <%=_("Network Uptime")%>
-                            </div>
-                            <div class="font-medium text-blue-600" id="network-uptime">-</div>
-                        </div>
+                        <div class="font-medium text-blue-600 font-mono tracking-tight" id="network-uptime">-</div>
                     </div>
                 </div>
+            </div>
 
+            <!-- ECharts 折线实时网速图 -->
+            <div class="lg:col-span-8 bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative overflow-hidden flex flex-col h-full">
+                <div class="flex items-center justify-between mb-2 flex-none">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="activity" class="text-blue-500 w-[18px] h-[18px]"></i>
+                        <h2 class="font-medium text-gray-700"><%=_("Real-time Network Traffic")%></h2>
+                    </div>
+                    <div class="text-sm text-gray-500 flex space-x-6 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+                        <div><span class="text-blue-500 mr-1">↓</span><%=_("Total Download")%>: <span id="total-down" class="text-blue-600 font-mono font-medium">0 B</span></div>
+                        <div><span class="text-emerald-500 mr-1">↑</span><%=_("Total Upload")%>: <span id="total-up" class="text-emerald-600 font-mono font-medium">0 B</span></div>
+                    </div>
+                </div>
+                
+                <!-- 折线图容器 -->
+                <div class="w-full flex-1 min-h-[260px]" id="traffic-line-chart"></div>
+            </div>
+
+        </div>
+
+        <!-- 第二排：系统信息 (左4) + 设备&域名 (右8) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1">
+            
+            <!-- 左侧：系统信息 + 快捷按钮 -->
+            <div class="lg:col-span-4 flex flex-col gap-6 h-full">
                 <!-- 系统信息卡片 -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col">
+                    <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2 flex-none">
                         <i data-lucide="cpu" class="text-purple-500 w-[18px] h-[18px]"></i>
                         <h2 class="font-medium text-gray-700"><%=_("System Information")%></h2>
                     </div>
-                    <div class="p-5 space-y-5">
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="text-gray-500"><%=_("Device Model")%></span>
-                            <span class="font-medium truncate max-w-[200px] text-right" id="sys-model">-</span>
-                        </div>
-                        <div class="flex justify-between items-center text-sm border-b border-gray-50 pb-4">
-                            <span class="text-gray-500 flex items-center"><i data-lucide="clock" class="w-[14px] h-[14px] mr-1"></i> <%=_("System Uptime")%></span>
-                            <span class="font-medium text-gray-800" id="sys-uptime">-</span>
-                        </div>
-                        <div class="pt-1">
-                            <div class="flex justify-between text-xs text-gray-500 mb-1.5">
-                                <span><%=_("CPU Load")%></span><span id="cpu-text">0%</span>
-                            </div>
-                            <div class="w-full bg-gray-100 rounded-full h-1.5">
-                                <div id="cpu-bar" class="bg-purple-500 h-1.5 rounded-full transition-all duration-500"></div>
-                            </div>
-                        </div>
+                    <div class="p-5 flex-1 flex flex-col justify-between">
                         <div>
-                            <div class="flex justify-between text-xs text-gray-500 mb-1.5">
-                                <span><%=_("Memory Usage")%></span><span id="mem-text">0%</span>
+                            <div class="flex justify-between items-center text-sm mb-4">
+                                <span class="text-gray-500"><%=_("Device Model")%></span>
+                                <span class="font-medium truncate max-w-[200px] text-right" id="sys-model">-</span>
                             </div>
-                            <div class="w-full bg-gray-100 rounded-full h-1.5">
-                                <div id="mem-bar" class="h-1.5 rounded-full transition-all duration-500 bg-green-500"></div>
+
+                            <div class="pt-1 mb-4">
+                                <div class="flex justify-between text-xs text-gray-500 mb-1.5">
+                                    <span><%=_("CPU Usage / Temp")%></span>
+                                    <span><span id="cpu-text" class="font-medium">0%</span><span id="cpu-temp" class="text-orange-500 font-medium ml-2"></span></span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-1.5">
+                                    <div id="cpu-bar" class="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <div class="flex justify-between text-xs text-gray-500 mb-1.5">
+                                    <span><%=_("Memory Usage")%></span><span id="mem-text" class="font-medium">0%</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-1.5">
+                                    <div id="mem-bar" class="h-1.5 rounded-full transition-all duration-500 bg-green-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 软硬件版本与时间区域 -->
+                        <div class="border-t border-gray-50 pt-4 space-y-3 mt-4">
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-500"><%=_("Firmware Version")%></span>
+                                <span class="font-medium text-gray-800 text-xs text-right" id="sys-firmware">-</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-500"><%=_("Kernel Version")%></span>
+                                <span class="font-medium text-gray-800 text-xs text-right" id="sys-kernel">-</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-500 flex items-center"><i data-lucide="clock" class="w-[14px] h-[14px] mr-1"></i> <%=_("System Uptime")%></span>
+                                <span class="font-medium text-gray-800 font-mono tracking-tight" id="sys-uptime">-</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-gray-500 flex items-center"><i data-lucide="calendar" class="w-[14px] h-[14px] mr-1"></i> <%=_("System Time")%></span>
+                                <span class="font-medium text-blue-600 font-mono tracking-tight" id="sys-time">-</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 快捷配置按钮区 -->
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-3 gap-3 flex-none">
                     <button onclick="window.location.href='/cgi-bin/luci/admin/system/admin'" class="bg-white flex flex-col items-center justify-center p-4 rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 hover:text-blue-600 transition-all text-gray-600 w-full">
                         <div class="mb-2"><i data-lucide="key" class="w-5 h-5"></i></div>
                         <span class="text-xs font-medium"><%=_("Change Password")%></span>
@@ -99,203 +154,210 @@
                 </div>
             </div>
 
-            <!-- 右侧栏 -->
-            <div class="lg:col-span-8 space-y-6">
-                <!-- ECharts 实时流量仪表盘 -->
-                <div class="bg-[#1e293b] rounded-xl shadow-lg border border-gray-700 p-5 relative overflow-hidden">
-                    <div class="absolute inset-0 bg-gradient-to-b from-[#253248] to-[#1e293b] opacity-50"></div>
-                    <div class="relative z-10 flex items-center justify-between mb-2">
+            <!-- 右侧：联网设备 + 活跃域名 -->
+            <div class="lg:col-span-8 grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+                <!-- 联网设备卡片 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full min-h-[320px]">
+                    <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between flex-none">
                         <div class="flex items-center space-x-2">
-                            <i data-lucide="activity" class="text-blue-400 w-5 h-5"></i>
-                            <h2 class="font-medium text-gray-200 text-lg"><%=_("Real-time Traffic")%></h2>
+                            <i data-lucide="users" class="w-[18px] h-[18px] text-blue-500"></i>
+                            <h2 class="font-medium text-gray-700"><%=_("Connected Devices")%></h2>
                         </div>
-                        <div class="text-sm text-gray-400 flex space-x-6 bg-[#0f172a] px-4 py-2 rounded-lg border border-gray-800">
-                            <div><%=_("Total Download")%>: <span id="total-down" class="text-blue-400 font-mono font-medium">0 B</span></div>
-                            <div><%=_("Total Upload")%>: <span id="total-up" class="text-emerald-400 font-mono font-medium">0 B</span></div>
-                        </div>
+                        <span class="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-medium"><%=_("Online")%> <span id="active-device-count">0</span> <%=_("Units")%></span>
                     </div>
-                    
-                    <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4 h-[240px]">
-                        <div id="gauge-down" class="w-full h-full"></div>
-                        <div id="gauge-up" class="w-full h-full"></div>
+                    <div class="p-2 flex-1 overflow-y-auto" id="devices-list">
+                        <!-- 动态加载设备列表 -->
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
-                    <!-- 联网设备卡片 -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-[380px]">
-                        <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-                            <div class="flex items-center space-x-2">
-                                <i data-lucide="users" class="w-[18px] h-[18px] text-blue-500"></i>
-                                <h2 class="font-medium text-gray-700"><%=_("Connected Devices")%></h2>
-                            </div>
-                            <span class="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full font-medium"><%=_("Online")%> <span id="active-device-count">0</span> <%=_("Units")%></span>
-                        </div>
-                        <div class="p-2 flex-1 overflow-y-auto" id="devices-list">
-                            <!-- 动态加载设备列表 -->
-                        </div>
+                <!-- 活跃域名卡片 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full min-h-[320px]">
+                    <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2 flex-none">
+                        <i data-lucide="link" class="w-[18px] h-[18px] text-indigo-500"></i>
+                        <h2 class="font-medium text-gray-700"><%=_("Recent Active Domains")%></h2>
                     </div>
-
-                    <!-- 活跃域名卡片 -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-[380px]">
-                        <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2">
-                            <i data-lucide="link" class="w-[18px] h-[18px] text-indigo-500"></i>
-                            <h2 class="font-medium text-gray-700"><%=_("Recent Active Domains")%></h2>
-                        </div>
-                        <div class="p-2 flex-1 overflow-y-auto" id="domains-list">
-                             <!-- 动态加载域名列表 -->
-                        </div>
+                    <div class="p-2 flex-1 overflow-y-auto" id="domains-list">
+                         <!-- 动态加载域名列表 -->
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- 逻辑与 API 请求脚本 -->
-<script>
-    // 定义多语言常量供 JS 使用
-    const i18n = {
-        nlbw_hint: '<%=_("Please install nlbwmon and enable domain stats")%>',
-        times: '<%=_("times")%>',
-        down_rate: '<%=_("Downlink Rate")%>',
-        up_rate: '<%=_("Uplink Rate")%>'
-    };
+    </main>
 
-    // 渲染页面图标
-    lucide.createIcons();
+    <script>
+        // 定义多语言常量供 JS 使用
+        const i18n = {
+            fetching: '<%=_("Fetching...")%>',
+            failed: '<%=_("Fetch Failed")%>',
+            nlbw_hint: '<%=_("Please install nlbwmon and enable domain stats")%>',
+            times: '<%=_("times")%>',
+            down_rate: '<%=_("Downlink Rate")%>',
+            up_rate: '<%=_("Uplink Rate")%>',
+            day: '<%=_("d")%>',
+            hour: '<%=_("h")%>',
+            min: '<%=_("m")%>',
+            sec: '<%=_("s")%>'
+        };
 
-    // 真实 API 地址
-    const API_BASE = '<%=url("admin/dashboard/api")%>';
+        lucide.createIcons();
+        const API_BASE = '<%=url("admin/dashboard/api")%>';
 
-    // 生成测试数据 ( fallback )
-    let mockTx = 1024 * 1024 * 50;
-    let mockRx = 1024 * 1024 * 300;
-    const getMockData = (endpoint) => {
-        switch(endpoint) {
-            case 'netinfo': return { wanStatus: 'up', wanIp: '100.64.12.34', lanIp: '192.168.100.1', networkUptime: '5d 12h 45m 32s' };
-            case 'sysinfo': return { model: 'X86 Router (Intel N5105)', sysUptime: '12d 3h 10m 05s', cpuUsage: Math.floor(Math.random() * 20) + 10, memUsage: 42 };
-            case 'traffic': 
-                mockTx += Math.floor(Math.random() * 2000000); 
-                mockRx += Math.floor(Math.random() * 15000000); 
-                return { tx_bytes: mockTx, rx_bytes: mockRx };
-            case 'devices': return [
-                { mac: 'AA:BB:CC:DD:EE:FF', ip: '192.168.100.101', name: 'iPhone-13', type: 'mobile', active: true },
-                { mac: '11:22:33:44:55:66', ip: '192.168.100.105', name: 'MacBook-Pro', type: 'laptop', active: true },
-                { mac: '22:33:44:55:66:77', ip: '192.168.100.120', name: 'Smart-TV', type: 'other', active: false },
-                { mac: '33:44:55:66:77:88', ip: '192.168.100.111', name: 'Desktop-PC', type: 'laptop', active: true },
-            ];
-            case 'domains': return [
-                { domain: 'apple.com', count: 1250 },
-                { domain: 'github.com', count: 843 },
-                { domain: 'baidu.com', count: 621 },
-                { domain: 'wechat.com', count: 450 }
-            ];
-            default: return null;
-        }
-    };
+        // 模拟数据
+        let mockTx = 1024 * 1024 * 50;
+        let mockRx = 1024 * 1024 * 300;
+        const getMockData = (endpoint) => {
+            switch(endpoint) {
+                case 'netinfo': return { wanStatus: 'up', wanIp: '100.64.12.34', lanIp: '192.168.100.1', dns: ['202.103.24.68', '202.103.44.150'], network_uptime_raw: 445800 };
+                case 'sysinfo': return { model: 'X86 Router (Intel N5105)', firmware: 'OpenWrt 23.05.0', kernel: '5.15.134', temp: 42, systime_raw: Math.floor(Date.now() / 1000), uptime_raw: 84942, cpuUsage: 5, memUsage: 25 };
+                case 'traffic': 
+                    mockTx += Math.floor(Math.random() * 2000000); 
+                    mockRx += Math.floor(Math.random() * 15000000); 
+                    return { tx_bytes: mockTx, rx_bytes: mockRx };
+                case 'devices': return [
+                    { mac: 'AA:BB:CC:DD:EE:FF', ip: '192.168.100.101', name: 'iPhone-13', type: 'mobile', active: true },
+                    { mac: '11:22:33:44:55:66', ip: '192.168.100.105', name: 'MacBook-Pro', type: 'laptop', active: true },
+                ];
+                case 'domains': return [
+                    { domain: 'apple.com', count: 1250 },
+                    { domain: 'github.com', count: 843 }
+                ];
+                default: return null;
+            }
+        };
 
-    // 封装 Fetch 请求
-    async function apiRequest(endpoint) {
-        try {
-            const res = await fetch(`${API_BASE}/${endpoint}`, {
-                credentials: 'same-origin',
-                headers: { 'Accept': 'application/json' }
-            });
-            if (!res.ok) throw new Error('API Fail');
-            return await res.json();
-        } catch (e) {
-            console.warn(`[Mock Fallback] ${endpoint}:`, e.message);
-            return getMockData(endpoint);
-        }
-    }
-
-    // 字节转换工具
-    function formatBytes(bytes, decimals = 2) {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const dm = decimals < 0 ? 0 : decimals;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-    }
-
-    // ================= 数据渲染逻辑 =================
-
-    // 渲染网络和系统静态信息
-    async function loadStaticInfo() {
-        const netInfo = await apiRequest('netinfo');
-        if (netInfo) {
-            document.getElementById('wan-ip').innerText = netInfo.wanIp;
-            document.getElementById('lan-ip').innerText = netInfo.lanIp;
-            document.getElementById('network-uptime').innerText = netInfo.networkUptime;
-            if(netInfo.wanStatus === 'up') {
-                document.getElementById('wan-status-dot').classList.remove('hidden');
+        async function apiRequest(endpoint) {
+            try {
+                const res = await fetch(`${API_BASE}/${endpoint}`, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+                if (!res.ok) throw new Error('API Fail');
+                return await res.json();
+            } catch (e) {
+                console.warn(`[Mock Fallback] ${endpoint}:`, e.message);
+                return getMockData(endpoint);
             }
         }
 
-        const sysInfo = await apiRequest('sysinfo');
-        if (sysInfo) {
-            document.getElementById('sys-model').innerText = sysInfo.model;
-            document.getElementById('sys-uptime').innerText = sysInfo.sysUptime;
-            updateCpuMem(sysInfo);
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 B';
+            const k = 1024, dm = decimals < 0 ? 0 : decimals, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         }
-    }
 
-    function updateCpuMem(sysInfo) {
-        document.getElementById('cpu-text').innerText = sysInfo.cpuUsage + '%';
-        document.getElementById('cpu-bar').style.width = sysInfo.cpuUsage + '%';
-        document.getElementById('mem-text').innerText = sysInfo.memUsage + '%';
-        const memBar = document.getElementById('mem-bar');
-        memBar.style.width = sysInfo.memUsage + '%';
-        memBar.className = `h-1.5 rounded-full transition-all duration-500 ${sysInfo.memUsage > 80 ? 'bg-red-500' : 'bg-green-500'}`;
-    }
+        function formatUptime(seconds) {
+            if (!seconds || seconds <= 0) return '-';
+            const d = Math.floor(seconds / 86400), h = Math.floor((seconds % 86400) / 3600), m = Math.floor((seconds % 3600) / 60), s = Math.floor(seconds % 60);
+            return `${d > 0 ? d + i18n.day : ''}${h}${i18n.hour}${m}${i18n.min}${s}${i18n.sec}`;
+        }
 
-    // 渲染设备列表
-    async function loadDevices() {
-        const devices = await apiRequest('devices');
-        if (!devices) return;
+        function formatSysTime(unixSeconds) {
+            const d = new Date(unixSeconds * 1000);
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+        }
+
+        // 全局时间跳动变量
+        let sysUptimeGlobal = 0, netUptimeGlobal = 0, sysTimeGlobal = 0;
         
-        document.getElementById('active-device-count').innerText = devices.filter(d => d.active).length;
-        const html = devices.map(dev => `
-            <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                <div class="flex items-center space-x-3">
-                    <div class="p-2 rounded-lg ${dev.active ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'}">
-                        <i data-lucide="${dev.type === 'mobile' ? 'smartphone' : 'laptop'}" class="w-5 h-5"></i>
+        setInterval(() => {
+            if (sysUptimeGlobal > 0) {
+                sysUptimeGlobal++;
+                document.getElementById('sys-uptime').innerText = formatUptime(sysUptimeGlobal);
+            }
+            if (netUptimeGlobal > 0) {
+                netUptimeGlobal++;
+                document.getElementById('network-uptime').innerText = formatUptime(netUptimeGlobal);
+            }
+            if (sysTimeGlobal > 0) {
+                sysTimeGlobal++;
+                document.getElementById('sys-time').innerText = formatSysTime(sysTimeGlobal);
+            }
+        }, 1000);
+
+        async function loadPublicIp() {
+            const publicIpEl = document.getElementById('public-ip');
+            publicIpEl.innerHTML = `<span class="flex items-center text-gray-400 text-xs"><i data-lucide="loader-2" class="w-3 h-3 animate-spin mr-1"></i> ${i18n.fetching}</span>`;
+            lucide.createIcons();
+            try {
+                const res = await fetch('https://ipleak.net/json/');
+                if (!res.ok) throw new Error('Network error');
+                const data = await res.json();
+                publicIpEl.innerHTML = `${data.ip}${data.country_name ? `<span class="text-xs text-gray-400 ml-1 font-normal">(${data.country_name})</span>` : ''}`;
+            } catch (e) {
+                publicIpEl.innerHTML = `<span class="text-red-400 text-xs">${i18n.failed}</span>`;
+            }
+        }
+
+        async function loadStaticInfo() {
+            const netInfo = await apiRequest('netinfo');
+            if (netInfo) {
+                document.getElementById('wan-ip').innerText = netInfo.wanIp;
+                document.getElementById('lan-ip').innerText = netInfo.lanIp;
+                document.getElementById('dns-servers').innerHTML = netInfo.dns && netInfo.dns.length > 0 ? netInfo.dns.join('<br>') : '-';
+                netUptimeGlobal = netInfo.network_uptime_raw;
+                if(netInfo.wanStatus === 'up') document.getElementById('wan-status-dot').classList.remove('hidden');
+            }
+
+            const sysInfo = await apiRequest('sysinfo');
+            if (sysInfo) {
+                document.getElementById('sys-model').innerText = sysInfo.model;
+                document.getElementById('sys-firmware').innerText = sysInfo.firmware;
+                document.getElementById('sys-kernel').innerText = sysInfo.kernel;
+                sysUptimeGlobal = sysInfo.uptime_raw;
+                sysTimeGlobal = sysInfo.systime_raw;
+                updateCpuMem(sysInfo);
+            }
+        }
+
+        function updateCpuMem(sysInfo) {
+            document.getElementById('cpu-text').innerText = sysInfo.cpuUsage + '%';
+            document.getElementById('cpu-temp').innerText = (sysInfo.temp && sysInfo.temp > 0) ? sysInfo.temp + '℃' : '';
+            document.getElementById('cpu-bar').style.width = sysInfo.cpuUsage + '%';
+            document.getElementById('mem-text').innerText = sysInfo.memUsage + '%';
+            const memBar = document.getElementById('mem-bar');
+            memBar.style.width = sysInfo.memUsage + '%';
+            memBar.className = `h-1.5 rounded-full transition-all duration-500 ${sysInfo.memUsage > 80 ? 'bg-red-500' : 'bg-green-500'}`;
+        }
+
+        async function loadDevices() {
+            const devices = await apiRequest('devices');
+            if (!devices) return;
+            document.getElementById('active-device-count').innerText = devices.filter(d => d.active).length;
+            const html = devices.map(dev => `
+                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 rounded-lg ${dev.active ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-400'}">
+                            <i data-lucide="${dev.type === 'mobile' ? 'smartphone' : 'laptop'}" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="text-sm font-medium ${dev.active ? 'text-gray-800' : 'text-gray-400'}">${dev.name || dev.mac}</div>
+                            <div class="text-xs text-gray-500 font-mono mt-0.5">${dev.ip}</div>
+                        </div>
                     </div>
                     <div>
-                        <div class="text-sm font-medium ${dev.active ? 'text-gray-800' : 'text-gray-400'}">${dev.name || dev.mac}</div>
-                        <div class="text-xs text-gray-500 font-mono mt-0.5">${dev.ip}</div>
+                        ${dev.active 
+                            ? `<span class="flex h-2 w-2 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>`
+                            : `<span class="h-2 w-2 rounded-full bg-gray-300 block"></span>`
+                        }
                     </div>
                 </div>
-                <div>
-                    ${dev.active 
-                        ? `<span class="flex h-2 w-2 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span>`
-                        : `<span class="h-2 w-2 rounded-full bg-gray-300 block"></span>`
-                    }
-                </div>
-            </div>
-        `).join('');
-        document.getElementById('devices-list').innerHTML = html;
-        lucide.createIcons(); // 刷新插入的图标
-    }
-
-    // 渲染域名列表
-    async function loadDomains() {
-        const domains = await apiRequest('domains');
-        if (!domains || domains.length === 0) {
-            document.getElementById('domains-list').innerHTML = `
-                <div class="h-full flex flex-col items-center justify-center text-sm text-gray-400 space-y-2">
-                    <i data-lucide="package-open" class="w-10 h-10 text-gray-300"></i>
-                    <span>${i18n.nlbw_hint}</span>
-                </div>`;
-            lucide.createIcons();
-            return;
+            `).join('');
+            document.getElementById('devices-list').innerHTML = html;
+            lucide.createIcons(); 
         }
-        const maxCount = domains[0].count;
-        const html = domains.map((item, idx) => {
-            const percent = Math.min((item.count / maxCount) * 100, 100);
-            return `
+
+        async function loadDomains() {
+            const domains = await apiRequest('domains');
+            if (!domains || domains.length === 0) {
+                document.getElementById('domains-list').innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-sm text-gray-400 space-y-2">
+                        <i data-lucide="package-open" class="w-10 h-10 text-gray-300"></i>
+                        <span>${i18n.nlbw_hint}</span>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+            const maxCount = domains[0].count;
+            const html = domains.map((item, idx) => `
                 <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group">
                     <div class="flex items-center space-x-3 truncate">
                         <div class="w-6 text-center text-sm text-gray-400 font-medium group-hover:text-indigo-500">${idx + 1}</div>
@@ -304,111 +366,78 @@
                     <div class="flex items-center space-x-2 w-1/3 justify-end">
                         <span class="text-xs text-gray-500">${item.count} ${i18n.times}</span>
                         <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden hidden sm:block">
-                            <div class="bg-indigo-400 h-full domain-progress-bar" data-width="${percent}"></div>
+                            <div class="bg-indigo-400 h-full" style="width: ${Math.min((item.count / maxCount) * 100, 100)}%"></div>
                         </div>
                     </div>
                 </div>
-            `;
-        }).join('');
-        document.getElementById('domains-list').innerHTML = html;
-        // 动态设置宽度以避开脚本字符串中的内联样式警告
-        document.querySelectorAll('.domain-progress-bar').forEach(el => {
-            el.style.width = el.getAttribute('data-width') + '%';
-        });
-    }
-
-    // ================= ECharts 仪表盘配置 =================
-    const chartDown = echarts.init(document.getElementById('gauge-down'));
-    const chartUp = echarts.init(document.getElementById('gauge-up'));
-
-    // 生成仪表盘通用配置
-    function getGaugeOption(title, gradientColors, maxVal) {
-        return {
-            series: [{
-                type: 'gauge',
-                startAngle: 210,
-                endAngle: -30,
-                min: 0,
-                max: maxVal,
-                splitNumber: 4,
-                itemStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, gradientColors)
-                },
-                progress: { show: true, width: 16 },
-                pointer: { show: false }, // 隐藏指针，只保留渐变环
-                axisLine: { lineStyle: { width: 16, color: [[1, '#334155']] } },
-                axisTick: { show: false },
-                splitLine: { show: false },
-                axisLabel: { show: false },
-                title: { show: true, offsetCenter: [0, '35%'], color: '#94a3b8', fontSize: 13 },
-                detail: {
-                    valueAnimation: true,
-                    formatter: function (value) {
-                        return formatBytes(value) + '/s';
-                    },
-                    color: '#f8fafc',
-                    fontSize: 22,
-                    fontWeight: 'bold',
-                    offsetCenter: [0, '-5%']
-                },
-                data: [{ value: 0, name: title }]
-            }]
-        };
-    }
-
-    // 初始化加载空状态图表
-    const downColors = [{offset:0, color:'#3b82f6'}, {offset:1, color:'#8b5cf6'}]; // 蓝紫色
-    const upColors = [{offset:0, color:'#10b981'}, {offset:1, color:'#3b82f6'}]; // 绿蓝色
-    chartDown.setOption(getGaugeOption(i18n.down_rate, downColors, 10 * 1024 * 1024));
-    chartUp.setOption(getGaugeOption(i18n.up_rate, upColors, 10 * 1024 * 1024));
-
-    window.addEventListener('resize', () => { chartDown.resize(); chartUp.resize(); });
-
-    // 动态计算量程 (保证进度条刻度看起来自然)
-    function getDynamicMax(bytesPerSec) {
-        const MB = 1024 * 1024;
-        if (bytesPerSec <= 5 * MB) return 5 * MB;
-        if (bytesPerSec <= 20 * MB) return 20 * MB;
-        if (bytesPerSec <= 100 * MB) return 100 * MB;
-        return 1000 * MB;
-    }
-
-    // 实时网速计算循环
-    let prevTx = 0, prevRx = 0, prevTime = 0;
-    async function refreshTraffic() {
-        const sys = await apiRequest('sysinfo');
-        if(sys) updateCpuMem(sys);
-
-        const traffic = await apiRequest('traffic');
-        if (traffic) {
-            const now = Date.now();
-            if (prevTime !== 0) {
-                const timeDiff = (now - prevTime) / 1000;
-                if (timeDiff > 0) {
-                    const upSpeed = Math.max(0, (traffic.tx_bytes - prevTx) / timeDiff);
-                    const downSpeed = Math.max(0, (traffic.rx_bytes - prevRx) / timeDiff);
-                    
-                    // 更新 ECharts 表盘
-                    chartDown.setOption({ series: [{ max: getDynamicMax(downSpeed), data: [{ value: downSpeed, name: i18n.down_rate }] }] });
-                    chartUp.setOption({ series: [{ max: getDynamicMax(upSpeed), data: [{ value: upSpeed, name: i18n.up_rate }] }] });
-                }
-            }
-            // 更新总流量文本
-            document.getElementById('total-up').innerText = formatBytes(traffic.tx_bytes);
-            document.getElementById('total-down').innerText = formatBytes(traffic.rx_bytes);
-            
-            prevTx = traffic.tx_bytes;
-            prevRx = traffic.rx_bytes;
-            prevTime = now;
+            `).join('');
+            document.getElementById('domains-list').innerHTML = html;
         }
-    }
 
-    // 启动应用
-    loadStaticInfo();
-    loadDevices();
-    loadDomains();
-    refreshTraffic();
-    setInterval(refreshTraffic, 2000); // 每2秒刷新一次网速和负载
-    
-</script>
-<%+footer%>
+        // ================= ECharts 渐变折线图配置 =================
+        const chartLine = echarts.init(document.getElementById('traffic-line-chart'));
+        const lineOption = {
+            tooltip: {
+                trigger: 'axis', backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#e2e8f0', textStyle: { color: '#1e293b' },
+                formatter: function (params) {
+                    let result = `<div style="font-weight:bold;margin-bottom:4px;color:#475569;">${params[0].axisValue}</div>`;
+                    params.forEach(p => { result += `<div style="display:flex;align-items:center;margin-top:2px;"><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:${p.color};"></span><span style="margin-right:12px;color:#64748b;">${p.seriesName}:</span><span style="font-family:monospace;font-weight:500;color:#1e293b;">${formatBytes(p.value)}/s</span></div>`; });
+                    return result;
+                }
+            },
+            legend: { data: [i18n.down_rate, i18n.up_rate], textStyle: { color: '#64748b' }, icon: 'circle', top: 0 },
+            grid: { left: '1%', right: '3%', bottom: '0%', top: '15%', containLabel: true },
+            xAxis: { type: 'category', boundaryGap: false, data: [], axisLine: { lineStyle: { color: '#cbd5e1' } }, axisLabel: { color: '#64748b' }, splitLine: { show: true, lineStyle: { color: '#f1f5f9' } } },
+            yAxis: { type: 'value', axisLine: { show: false }, axisLabel: { color: '#64748b', formatter: (val) => formatBytes(val) + '/s' }, splitLine: { show: true, lineStyle: { color: '#e2e8f0', type: 'dashed' } } },
+            series: [
+                { name: i18n.down_rate, type: 'line', smooth: true, symbol: 'none', itemStyle: { color: '#3b82f6' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(59, 130, 246, 0.3)' }, { offset: 1, color: 'rgba(59, 130, 246, 0.01)' }]) }, data: [] },
+                { name: i18n.up_rate, type: 'line', smooth: true, symbol: 'none', itemStyle: { color: '#10b981' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(16, 185, 129, 0.3)' }, { offset: 1, color: 'rgba(16, 185, 129, 0.01)' }]) }, data: [] }
+            ]
+        };
+        chartLine.setOption(lineOption);
+        window.addEventListener('resize', () => { chartLine.resize(); });
+
+        const MAX_POINTS = 30;
+        let timeData = [], downData = [], upData = [];
+        let prevTx = 0, prevRx = 0, prevTime = 0;
+
+        async function refreshTraffic() {
+            const sys = await apiRequest('sysinfo');
+            if(sys) {
+                updateCpuMem(sys);
+                sysTimeGlobal = sys.systime_raw;
+            }
+
+            const traffic = await apiRequest('traffic');
+            if (traffic) {
+                const now = Date.now();
+                if (prevTime !== 0) {
+                    const timeDiff = (now - prevTime) / 1000;
+                    if (timeDiff > 0) {
+                        const upSpeed = Math.max(0, (traffic.tx_bytes - prevTx) / timeDiff);
+                        const downSpeed = Math.max(0, (traffic.rx_bytes - prevRx) / timeDiff);
+                        const d = new Date();
+                        const timeStr = [d.getHours(), d.getMinutes(), d.getSeconds()].map(v => v.toString().padStart(2, '0')).join(':');
+
+                        timeData.push(timeStr); downData.push(downSpeed); upData.push(upSpeed);
+                        if (timeData.length > MAX_POINTS) { timeData.shift(); downData.shift(); upData.shift(); }
+                        chartLine.setOption({ xAxis: { data: timeData }, series: [ { data: downData }, { data: upData } ] });
+                    }
+                }
+                document.getElementById('total-up').innerText = formatBytes(traffic.tx_bytes);
+                document.getElementById('total-down').innerText = formatBytes(traffic.rx_bytes);
+                prevTx = traffic.tx_bytes; prevRx = traffic.rx_bytes; prevTime = now;
+            }
+        }
+
+        // 启动应用
+        loadStaticInfo();
+        loadPublicIp();
+        loadDevices();
+        loadDomains();
+        refreshTraffic();
+        setInterval(refreshTraffic, 2000);
+        
+    </script>
+</body>
+</html>

@@ -6,17 +6,35 @@ msgstr ""
 msgid "Dashboard"
 msgstr "仪表盘"
 
-msgid "Network Status"
-msgstr "网络状态"
+msgid "Network Interface Status"
+msgstr "网络接口状态"
 
-msgid "WAN IPv4"
-msgstr "外网 IPv4"
+msgid "WAN IP"
+msgstr "WAN口 IP"
+
+msgid "Public IP"
+msgstr "公网 IP"
 
 msgid "LAN IP"
 msgstr "局域网 IP"
 
-msgid "Network Uptime"
-msgstr "联网时间"
+msgid "DNS"
+msgstr "DNS"
+
+msgid "Auto"
+msgstr "自动获取"
+
+msgid "Network Connected"
+msgstr "已联网"
+
+msgid "Real-time Network Traffic"
+msgstr "实时网络流量"
+
+msgid "Total Download"
+msgstr "总下载量"
+
+msgid "Total Upload"
+msgstr "总上传量"
 
 msgid "System Information"
 msgstr "系统信息"
@@ -24,14 +42,23 @@ msgstr "系统信息"
 msgid "Device Model"
 msgstr "设备型号"
 
-msgid "System Uptime"
-msgstr "运行时间"
-
-msgid "CPU Load"
-msgstr "CPU 负载"
+msgid "CPU Usage / Temp"
+msgstr "CPU 使用率 / 温度"
 
 msgid "Memory Usage"
-msgstr "内存使用"
+msgstr "内存使用率"
+
+msgid "Firmware Version"
+msgstr "固件版本"
+
+msgid "Kernel Version"
+msgstr "内核版本"
+
+msgid "System Uptime"
+msgstr "已启动时间"
+
+msgid "System Time"
+msgstr "系统当前时间"
 
 msgid "Change Password"
 msgstr "修改密码"
@@ -41,18 +68,6 @@ msgstr "系统设置"
 
 msgid "File Sharing"
 msgstr "文件共享"
-
-msgid "Downlink Speed"
-msgstr "实时下行网速"
-
-msgid "Uplink Speed"
-msgstr "实时上行网速"
-
-msgid "Total Download"
-msgstr "总下载流量"
-
-msgid "Total Upload"
-msgstr "总上传流量"
 
 msgid "Connected Devices"
 msgstr "联网设备"
@@ -69,6 +84,12 @@ msgstr "近期活跃域名"
 msgid "Please install nlbwmon and enable domain stats"
 msgstr "暂无数据，请确保已安装并开启 nlbwmon 插件"
 
+msgid "Fetching..."
+msgstr "获取中..."
+
+msgid "Fetch Failed"
+msgstr "获取失败"
+
 msgid "times"
 msgstr "次"
 
@@ -80,3 +101,15 @@ msgstr "下行速率"
 
 msgid "Uplink Rate"
 msgstr "上行速率"
+
+msgid "d"
+msgstr "天"
+
+msgid "h"
+msgstr "小时"
+
+msgid "m"
+msgstr "分"
+
+msgid "s"
+msgstr "秒"
