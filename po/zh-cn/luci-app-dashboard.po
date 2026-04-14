@@ -6,47 +6,68 @@ msgstr ""
 msgid "Dashboard"
 msgstr "仪表盘"
 
-msgid "System status and traffic monitoring"
-msgstr "系统状态与流量实时监控"
+msgid "Network Status"
+msgstr "网络状态"
 
-msgid "Incoming Speed"
-msgstr "下行网速"
+msgid "WAN IPv4"
+msgstr "外网 IPv4"
 
-msgid "Outgoing Speed"
-msgstr "上行网速"
+msgid "LAN IP"
+msgstr "局域网 IP"
 
-msgid "Total Traffic"
-msgstr "流量总计"
+msgid "Network Uptime"
+msgstr "联网时间"
 
-msgid "Total Download"
-msgstr "累计下载"
+msgid "System Information"
+msgstr "系统信息"
 
-msgid "Total Upload"
-msgstr "累计上传"
+msgid "Device Model"
+msgstr "设备型号"
 
-msgid "Network IP"
-msgstr "网络 IP"
-
-msgid "Top Domains"
-msgstr "活跃域名排行"
-
-msgid "Traffic Breakdown"
-msgstr "流量类型统计"
-
-msgid "Online Users"
-msgstr "在线设备"
-
-msgid "Uptime"
+msgid "System Uptime"
 msgstr "运行时间"
 
-msgid "Firmware"
-msgstr "固件"
+msgid "CPU Load"
+msgstr "CPU 负载"
 
-msgid "WAN Device"
-msgstr "出口设备"
+msgid "Memory Usage"
+msgstr "内存使用"
 
-msgid "Collecting data..."
-msgstr "正在收集统计数据..."
+msgid "Change Password"
+msgstr "修改密码"
 
-msgid "Waiting for nlbwmon..."
-msgstr "等待 nlbwmon 服务响应..."
+msgid "System Settings"
+msgstr "系统设置"
+
+msgid "File Sharing"
+msgstr "文件共享"
+
+msgid "Downlink Speed"
+msgstr "实时下行网速"
+
+msgid "Uplink Speed"
+msgstr "实时上行网速"
+
+msgid "Total Download"
+msgstr "总下载流量"
+
+msgid "Total Upload"
+msgstr "总上传流量"
+
+msgid "Connected Devices"
+msgstr "联网设备"
+
+msgid "Online"
+msgstr "在线"
+
+msgid "Units"
+msgstr "台"
+
+msgid "Recent Active Domains"
+msgstr "近期活跃域名"
+
+msgid "Please install nlbwmon and enable domain stats"
+msgstr "请安装 nlbwmon 插件并开启域名统计"
+
+msgid "times"
+msgstr "次"
