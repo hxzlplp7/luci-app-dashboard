@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-dashboard
-PKG_VERSION:=1.4.15
+PKG_VERSION:=1.4.16
 PKG_MAINTAINER:=dashboard-community
 
 LUCI_TITLE:=LuCI Dashboard
@@ -19,12 +19,4 @@ LUCI_MINIFY_JS:=0
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
-define Package/luci-i18n-dashboard-zh-cn/postinst
-#!/bin/sh
-[ -n "$${IPKG_INSTROOT}" ] || {
-	[ -f /etc/uci-defaults/luci-i18n-dashboard-zh-cn ] && {
-		( . /etc/uci-defaults/luci-i18n-dashboard-zh-cn ) && rm -f /etc/uci-defaults/luci-i18n-dashboard-zh-cn
-	}
-	exit 0
-}
-endef
+# call BuildPackage - OpenWrt buildroot signature
