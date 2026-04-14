@@ -22,72 +22,64 @@ local function send_json(data)
     http.write(jsonc.stringify(data or {}))
 end
 
--- 接口 1：系统深度信息
 function api_sysinfo()
-    local loadavg = sys.loadavg()
+    local loadavg = sys.loadavg() or {0, 0, 0}
     
-    -- 获取运行时间 (秒)
     local uptime_raw = 0
     local f_up = io.open("/proc/uptime", "r")
     if f_up then
-        uptime_raw = tonumber(f_up:read("*all"):match("^(%d+%.%d+)")) or 0
+        local c = f_up:read("*all")
+        if c then uptime_raw = tonumber(c:match("^(%d+%.%d+)")) or 0 end
         f_up:close()
     end
     
-    -- 获取设备型号 (ubus 优先)
+    -- 获取设备型号: 综合多种方式，加入对 device-tree 的读取 (针对你的 NanoPi R4S)
+    local model = ""
     local boardinfo = util.ubus("system", "board", {})
-    local model = boardinfo and boardinfo.model or util.trim(sys.exec("cat /tmp/sysinfo/model 2>/dev/null"))
-    if not model or model == "" then model = "Generic Device" end
+    if type(boardinfo) == "table" and boardinfo.model then model = boardinfo.model end
+    if model == "" then model = util.trim(sys.exec("cat /tmp/sysinfo/model 2>/dev/null") or "") end
+    if model == "" then model = util.trim(sys.exec("cat /proc/device-tree/model 2>/dev/null | tr -d '\\0'") or "") end
+    if model == "" then model = "Generic Device" end
     
-    -- 获取固件版本
     local firmware = "Unknown"
     local f_rel = io.open("/etc/openwrt_release", "r")
     if f_rel then
-        firmware = f_rel:read("*all"):match("DISTRIB_DESCRIPTION='([^']+)'") or "OpenWrt"
+        local c = f_rel:read("*all")
+        if c then firmware = c:match("DISTRIB_DESCRIPTION='([^']+)'") or "OpenWrt" end
         f_rel:close()
     end
 
-    -- 获取内核版本
     local kernel = util.trim(sys.exec("uname -r 2>/dev/null") or "-")
-
-    -- 获取 CPU 温度
-    local temp_raw = tonumber(util.trim(sys.exec("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null"))) or 0
-    local temp = 0
-    if temp_raw > 0 then
-        temp = math.floor(temp_raw / 1000)
-    end
-
-    -- 获取系统当前 Unix 时间戳
+    
+    -- 安全获取 CPU 温度
+    local temp_str = util.trim(sys.exec("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null") or "")
+    local temp_raw = tonumber(temp_str) or 0
+    local temp = temp_raw > 0 and math.floor(temp_raw / 1000) or 0
     local systime_raw = os.time()
     
-    -- 内存与 CPU 负载
-    local meminfo = sys.memory()
-    local mem_usage = 0
-    if meminfo.total > 0 then
-        mem_usage = math.floor(((meminfo.total - meminfo.free) / meminfo.total) * 100)
-    end
-    local cpu_usage = math.min(math.floor(loadavg[1] * 100), 100)
+    -- 安全获取内存信息
+    local meminfo = sys.memory() or {}
+    local m_tot = tonumber(meminfo.total) or 0
+    local m_free = tonumber(meminfo.free) or 0
+    local mem_usage = m_tot > 0 and math.floor(((m_tot - m_free) / m_tot) * 100) or 0
+    
+    -- 安全获取负载
+    local cpu_usage = loadavg[1] and math.min(math.floor(tonumber(loadavg[1]) * 100), 100) or 0
 
     send_json({
-        model = model,
-        firmware = firmware,
-        kernel = kernel,
-        temp = temp,
-        systime_raw = systime_raw,
-        uptime_raw = math.floor(uptime_raw),
-        cpuUsage = cpu_usage,
-        memUsage = mem_usage
+        model = model, firmware = firmware, kernel = kernel, temp = temp,
+        systime_raw = systime_raw, uptime_raw = math.floor(uptime_raw),
+        cpuUsage = cpu_usage, memUsage = mem_usage
     })
 end
 
--- 接口 2：网络接口信息 (含 DNS)
 function api_netinfo()
     local wanIp, wanStatus, lanIp = "-", "down", "-"
     local network_uptime_raw = 0
     local dns_list = {}
     
     local wan_stat = util.ubus("network.interface.wan", "status", {})
-    if wan_stat and wan_stat.up then
+    if wan_stat and type(wan_stat) == "table" and wan_stat.up then
         wanStatus = "up"
         network_uptime_raw = tonumber(wan_stat.uptime) or 0
         if wan_stat["ipv4-address"] and #wan_stat["ipv4-address"] > 0 then
@@ -98,29 +90,21 @@ function api_netinfo()
         end
     end
 
-    -- DNS 备份读取
     if #dns_list == 0 then
         local resolv = util.execl("cat /tmp/resolv.conf.auto 2>/dev/null | grep nameserver | awk '{print $2}'")
-        for _, d in ipairs(resolv) do
-            table.insert(dns_list, util.trim(d))
+        if resolv then
+            for _, d in ipairs(resolv) do table.insert(dns_list, util.trim(d)) end
         end
     end
 
     local lan_stat = util.ubus("network.interface.lan", "status", {})
-    if lan_stat and lan_stat["ipv4-address"] and #lan_stat["ipv4-address"] > 0 then
+    if lan_stat and type(lan_stat) == "table" and lan_stat["ipv4-address"] and #lan_stat["ipv4-address"] > 0 then
         lanIp = lan_stat["ipv4-address"][1].address
     end
 
-    send_json({
-        wanStatus = wanStatus,
-        wanIp = wanIp,
-        lanIp = lanIp,
-        dns = dns_list,
-        network_uptime_raw = network_uptime_raw
-    })
+    send_json({ wanStatus = wanStatus, wanIp = wanIp, lanIp = lanIp, dns = dns_list, network_uptime_raw = network_uptime_raw })
 end
 
--- 接口 3：实时流量统计
 function api_traffic()
     local wan_dev = util.trim(sys.exec("uci get network.wan.device 2>/dev/null") or "eth0")
     if wan_dev == "" then wan_dev = "eth0" end
@@ -129,11 +113,11 @@ function api_traffic()
     send_json({ rx_bytes = rx_bytes, tx_bytes = tx_bytes })
 end
 
--- 接口 4：联网设备
 function api_devices()
     local devices = {}
-    local leases = util.execl("cat /tmp/dhcp.leases 2>/dev/null")
-    local arp = util.execl("cat /proc/net/arp 2>/dev/null")
+    local leases = util.execl("cat /tmp/dhcp.leases 2>/dev/null") or {}
+    local arp = util.execl("cat /proc/net/arp 2>/dev/null") or {}
+    
     local active_macs = {}
     for _, line in ipairs(arp) do
         local ip, type, flags, mac = line:match("^([%d%.]+)%s+%S+%s+0x(%d+)%s+([%x%:]+)")
@@ -152,7 +136,6 @@ function api_devices()
     send_json(devices)
 end
 
--- 接口 5：活跃域名或目标 IP
 function api_domains()
     local result = {}
     local source = "none"
@@ -164,7 +147,7 @@ function api_domains()
         handle:close()
         if raw_json and raw_json ~= "" then
             local success, parsed = pcall(jsonc.parse, raw_json)
-            if success and parsed and parsed.connections then
+            if success and parsed and type(parsed.connections) == "table" then
                 local counts = {}
                 for _, conn in ipairs(parsed.connections) do
                     local domain = conn.hostname or conn.dst_ip
@@ -184,7 +167,6 @@ function api_domains()
 
     -- 尝试 2：原生内核连接追踪 nf_conntrack (公网 IP 模式)
     if source == "none" then
-        -- 提取系统底层正在通信的目标公网 IP，并按并发连接数排序
         local cmd = "cat /proc/net/nf_conntrack 2>/dev/null | grep -Eo 'dst=([0-9\\.]+)' | awk -F'=' '{print $2}' | grep -v '^192\\.168\\.' | grep -v '^127\\.' | grep -v '^10\\.' | sort | uniq -c | sort -nr | head -n 10"
         local p = io.popen(cmd)
         if p then
