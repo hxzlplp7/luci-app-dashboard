@@ -8,13 +8,13 @@ module("luci.controller.dashboard", package.seeall)
 
 function index()
     -- 直接渲染 main 模板，不再通过 home.htm 中转
-    entry({"admin", "dashboard"}, template("dashboard/main"), _("Dashboard"), 1).leaf = true
+    entry({"admin", "dashboard"}, template("dashboard/main"), _("Dashboard"), 1)
     entry({"admin", "dashboard", "api"}, call("dashboard_api")).leaf = true
 end
 
 local routes = {
     ["system_status"]  = "get_system_status",
-    ["system_info"]    = "get_system_info",
+    ["system_info"]    = "get_system_status",
     ["network_status"] = "get_network_status",
     ["network_traffic"]= "get_traffic",
 }

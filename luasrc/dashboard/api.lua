@@ -77,10 +77,9 @@ function M.get_traffic()
     -- 获取网口原生统计 (字节)
     local rx_bytes, tx_bytes = 0, 0
     local dev_stats = u.read_file_all("/proc/net/dev") or ""
-    local line = dev_stats:match("\n%s*" .. dev .. ":%s*(%d+)%s+%d+%s+%d+%s+%d+%s+%d+%s+%d+%s+%d+%s+%d+%s+(%d+)")
-    if line then
-        rx_bytes, tx_bytes = tonumber(line:match("(%d+)%s+(%d+)"))
-    end
+    local rx_str, tx_str = dev_stats:match("\n%s*" .. dev .. ":%s*(%d+)%s+%d+%s+%d+%s+%d+%s+%d+%s+%d+%s+%d+%s+%d+%s+(%d+)")
+    rx_bytes = tonumber(rx_str) or 0
+    tx_bytes = tonumber(tx_str) or 0
 
     -- 基于 nlbwmon 的深度统计
     local nlbw_data = jsonc.parse(u.exec("nlbw -c json 2>/dev/null") or "[]") or {}
