@@ -152,9 +152,12 @@ function api_devices()
     send_json(devices)
 end
 
--- 接口 5：活跃域名
+-- 接口 5：活跃域名或目标 IP
 function api_domains()
     local result = {}
+    local source = "none"
+
+    -- 尝试 1：nlbwmon (域名模式)
     local handle = io.popen("nlbwmon -c /etc/config/nlbwmon --dump -f json 2>/dev/null")
     if handle then
         local raw_json = handle:read("*a")
@@ -162,28 +165,46 @@ function api_domains()
         if raw_json and raw_json ~= "" then
             local success, parsed = pcall(jsonc.parse, raw_json)
             if success and parsed and parsed.connections then
-                local counts, has_data = {}, false
+                local counts = {}
                 for _, conn in ipairs(parsed.connections) do
                     local domain = conn.hostname or conn.dst_ip
                     if domain and domain ~= "" and domain ~= "-" then
                         counts[domain] = (counts[domain] or 0) + (tonumber(conn.conns) or 1)
-                        has_data = true
                     end
                 end
-                if has_data then
-                    for domain, count in pairs(counts) do
-                        if not domain:match("^192%.168%.") and not domain:match("^10%.") then
-                            table.insert(result, { domain = domain, count = count })
-                        end
+                for domain, count in pairs(counts) do
+                    if not domain:match("^192%.168%.") and not domain:match("^10%.") and not domain:match("^127%.") then
+                        table.insert(result, { domain = domain, count = count })
                     end
-                    table.sort(result, function(a, b) return a.count > b.count end)
-                    local top10 = {}
-                    for i = 1, math.min(10, #result) do table.insert(top10, result[i]) end
-                    send_json(top10)
-                    return
                 end
+                if #result > 0 then source = "nlbwmon" end
             end
         end
     end
-    send_json({})
+
+    -- 尝试 2：原生内核连接追踪 nf_conntrack (公网 IP 模式)
+    if source == "none" then
+        -- 提取系统底层正在通信的目标公网 IP，并按并发连接数排序
+        local cmd = "cat /proc/net/nf_conntrack 2>/dev/null | grep -Eo 'dst=([0-9\\.]+)' | awk -F'=' '{print $2}' | grep -v '^192\\.168\\.' | grep -v '^127\\.' | grep -v '^10\\.' | sort | uniq -c | sort -nr | head -n 10"
+        local p = io.popen(cmd)
+        if p then
+            for line in p:lines() do
+                local count, ip = line:match("%s*(%d+)%s+(%S+)")
+                if count and ip then
+                    table.insert(result, { domain = ip, count = tonumber(count) })
+                end
+            end
+            p:close()
+            if #result > 0 then source = "conntrack" end
+        end
+    end
+
+    if #result > 0 then
+        table.sort(result, function(a, b) return a.count > b.count end)
+        local top10 = {}
+        for i = 1, math.min(10, #result) do table.insert(top10, result[i]) end
+        send_json({ source = source, list = top10 })
+    else
+        send_json({ source = "none", list = {} })
+    end
 end

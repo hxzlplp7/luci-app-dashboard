@@ -170,14 +170,16 @@
                     </div>
                 </div>
 
-                <!-- 活跃域名卡片 -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full min-h-[320px]">
-                    <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2 flex-none">
-                        <i data-lucide="link" class="w-[18px] h-[18px] text-indigo-500"></i>
-                        <h2 class="font-medium text-gray-700"><%=_("Recent Active Domains")%></h2>
+                <!-- 活跃域名/公网IP 智能切换卡片 -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full min-h-0">
+                    <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between flex-none">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="link" class="w-[18px] h-[18px] text-indigo-500"></i>
+                            <h2 class="font-medium text-gray-700 flex items-center" id="domains-title"><%=_("Recent Active Domains")%></h2>
+                        </div>
                     </div>
-                    <div class="p-2 flex-1 overflow-y-auto" id="domains-list">
-                         <!-- 动态加载域名列表 -->
+                    <div class="p-2 flex-1 overflow-y-auto min-h-0 relative" id="domains-list">
+                         <!-- 动态加载域名或IP列表 -->
                     </div>
                 </div>
             </div>
@@ -197,7 +199,12 @@
             day: '<%=_("d")%>',
             hour: '<%=_("h")%>',
             min: '<%=_("m")%>',
-            sec: '<%=_("s")%>'
+            sec: '<%=_("s")%>',
+            active_public_ips: '<%=_("Active Public IPs")%>',
+            native_tracking: '<%=_("Native Tracking")%>',
+            recent_active_domains: '<%=_("Recent Active Domains")%>',
+            connections: '<%=_("Conns")%>',
+            mock_hint: '<%=_("No real data detected, showing mock data")%>'
         };
 
         lucide.createIcons();
@@ -218,10 +225,15 @@
                     { mac: 'AA:BB:CC:DD:EE:FF', ip: '192.168.100.101', name: 'iPhone-13', type: 'mobile', active: true },
                     { mac: '11:22:33:44:55:66', ip: '192.168.100.105', name: 'MacBook-Pro', type: 'laptop', active: true },
                 ];
-                case 'domains': return [
-                    { domain: 'apple.com', count: 1250 },
-                    { domain: 'github.com', count: 843 }
-                ];
+                case 'domains': return {
+                    source: 'mock',
+                    list: [
+                        { domain: 'apple.com', count: 1250 },
+                        { domain: 'github.com', count: 843 },
+                        { domain: 'wechat.com', count: 450 },
+                        { domain: 'google.com', count: 320 }
+                    ]
+                };
                 default: return null;
             }
         };
@@ -346,25 +358,37 @@
         }
 
         async function loadDomains() {
-            const domains = await apiRequest('domains');
-            if (!domains || domains.length === 0) {
-                document.getElementById('domains-list').innerHTML = `
-                    <div class="h-full flex flex-col items-center justify-center text-sm text-gray-400 space-y-2">
-                        <i data-lucide="package-open" class="w-10 h-10 text-gray-300"></i>
-                        <span>${i18n.nlbw_hint}</span>
-                    </div>`;
-                lucide.createIcons();
-                return;
+            let res = await apiRequest('domains');
+            let isMock = false;
+            let source = 'none';
+            let domains = [];
+            
+            if (!res || !res.list || res.list.length === 0) {
+                res = getMockData('domains');
+                isMock = true;
             }
-            const maxCount = domains[0].count;
-            const html = domains.map((item, idx) => `
+            
+            source = res.source;
+            domains = res.list;
+
+            const titleEl = document.getElementById('domains-title');
+            if (source === 'conntrack') {
+                titleEl.innerHTML = `${i18n.active_public_ips} <span class="ml-2 text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded border border-green-200">${i18n.native_tracking}</span>`;
+            } else {
+                titleEl.innerHTML = i18n.recent_active_domains;
+            }
+            
+            const maxCount = domains[0]?.count || 1;
+            let html = isMock ? `<div class="px-3 py-1.5 text-[11px] text-orange-600 bg-orange-50 rounded mb-2 text-center border border-orange-100 mx-2 mt-1">${i18n.mock_hint}</div>` : '';
+            
+            html += domains.map((item, idx) => `
                 <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group">
                     <div class="flex items-center space-x-3 truncate">
                         <div class="w-6 text-center text-sm text-gray-400 font-medium group-hover:text-indigo-500">${idx + 1}</div>
-                        <div class="text-sm text-gray-700 truncate">${item.domain}</div>
+                        <div class="text-sm text-gray-700 truncate font-mono">${item.domain}</div>
                     </div>
                     <div class="flex items-center space-x-2 w-1/3 justify-end">
-                        <span class="text-xs text-gray-500">${item.count} ${i18n.times}</span>
+                        <span class="text-xs text-gray-500">${item.count} ${source === 'conntrack' ? i18n.connections : i18n.times}</span>
                         <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden hidden sm:block">
                             <div class="bg-indigo-400 h-full" style="width: ${Math.min((item.count / maxCount) * 100, 100)}%"></div>
                         </div>
@@ -437,6 +461,7 @@
         loadDomains();
         refreshTraffic();
         setInterval(refreshTraffic, 2000);
+        setInterval(loadDomains, 5000);
         
     </script>
 </body>

@@ -113,3 +113,15 @@ msgstr "分"
 
 msgid "s"
 msgstr "秒"
+
+msgid "Active Public IPs"
+msgstr "活跃公网 IP"
+
+msgid "Native Tracking"
+msgstr "原生追踪"
+
+msgid "Conns"
+msgstr "个连接"
+
+msgid "No real data detected, showing mock data"
+msgstr "未检测到真实数据，当前为演示内容"
