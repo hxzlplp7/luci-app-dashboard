@@ -1,7 +1,7 @@
 module("luci.controller.dashboard", package.seeall)
 
 function index()
-    entry({"admin", "dashboard"}, firstchild(), "Dashboard", 10).dependent = true
+    entry({"admin", "dashboard"}, template("dashboard/main"), _("Dashboard"), 10).dependent = true
     
     entry({"admin", "dashboard", "api", "sysinfo"}, call("api_sysinfo"))
     entry({"admin", "dashboard", "api", "netinfo"}, call("api_netinfo"))
