@@ -5,79 +5,76 @@
     <header>
         <div class="brand">
             <h1><%=_("Dashboard")%></h1>
-            <div class="sys-info">
-                <%=_("System status and traffic monitoring")%>
-            </div>
         </div>
-        <div class="sys-info" style="text-align: right">
-            <span id="cpu-label">CPU: <b id="cpu-val">--</b></span> | 
-            <span id="mem-label">RAM: <b id="mem-val">--</b></span>
+        <div class="sys-quick">
+            <span>CPU: <b id="cpu-val">--</b></span>
+            <span>RAM: <b id="mem-val">--</b></span>
         </div>
     </header>
 
-    <!-- 圆形仪表盘区域 -->
-    <div class="gauge-container">
-        <!-- 下载速度表盘 -->
-        <div class="gauge-item" id="gauge-down">
-            <svg class="gauge-svg" width="240" height="240" viewBox="0 0 240 240">
-                <circle class="gauge-bg" cx="120" cy="120" r="100"></circle>
-                <circle class="gauge-fill" cx="120" cy="120" r="100" stroke="var(--accent-blue)"></circle>
+    <div class="gauge-grid">
+        <!-- Downstream Gauge -->
+        <div class="gauge-box" id="gauge-down">
+            <svg class="gauge-svg" width="280" height="280" viewBox="0 0 280 280">
+                <circle class="gauge-track" cx="140" cy="140" r="120"></circle>
+                <circle class="gauge-glow" cx="140" cy="140" r="120" stroke="var(--accent-primary)"></circle>
+                <circle class="gauge-progress" cx="140" cy="140" r="120" stroke="var(--accent-primary)"></circle>
             </svg>
-            <div class="gauge-content">
-                <span class="gauge-label"><%=_("Incoming Speed")%></span>
-                <div class="gauge-value" id="val-down">0.0</div>
-                <span class="gauge-unit">Mbps</span>
+            <div class="gauge-center">
+                <span class="g-label"><%=_("Incoming Speed")%></span>
+                <div class="g-value">0.0</div>
+                <span class="g-unit">Mbps</span>
             </div>
         </div>
 
-        <!-- 上传速度表盘 -->
-        <div class="gauge-item" id="gauge-up">
-            <svg class="gauge-svg" width="240" height="240" viewBox="0 0 240 240">
-                <circle class="gauge-bg" cx="120" cy="120" r="100"></circle>
-                <circle class="gauge-fill" cx="120" cy="120" r="100" stroke="var(--accent-green)"></circle>
+        <!-- Upstream Gauge -->
+        <div class="gauge-box" id="gauge-up">
+            <svg class="gauge-svg" width="280" height="280" viewBox="0 0 280 280">
+                <circle class="gauge-track" cx="140" cy="140" r="120"></circle>
+                <circle class="gauge-glow" cx="140" cy="140" r="120" stroke="var(--accent-secondary)"></circle>
+                <circle class="gauge-progress" cx="140" cy="140" r="120" stroke="var(--accent-secondary)"></circle>
             </svg>
-            <div class="gauge-content">
-                <span class="gauge-label"><%=_("Outgoing Speed")%></span>
-                <div class="gauge-value" id="val-up">0.0</div>
-                <span class="gauge-unit">Mbps</span>
+            <div class="gauge-center">
+                <span class="g-label"><%=_("Outgoing Speed")%></span>
+                <div class="g-value">0.0</div>
+                <span class="g-unit">Mbps</span>
             </div>
         </div>
     </div>
 
-    <!-- 详细统计网格 -->
-    <div class="stats-grid">
-        <!-- 流量统计卡片 -->
-        <div class="stats-card">
+    <div class="stats-container">
+        <!-- Traffic Aggregation -->
+        <div class="glass-card">
             <div class="card-title"><%=_("Total Traffic")%></div>
             <div class="stat-list">
-                <div class="stat-row">
-                    <span class="stat-name"><%=_("Total Download")%></span>
-                    <span class="stat-val" id="total-rx">0 B</span>
+                <div class="data-row">
+                    <span class="data-label"><%=_("Total Download")%></span>
+                    <span class="data-val" id="total-rx">0 B</span>
                 </div>
-                <div class="stat-row">
-                    <span class="stat-name"><%=_("Total Upload")%></span>
-                    <span class="stat-val" id="total-tx">0 B</span>
+                <div class="data-row">
+                    <span class="data-label"><%=_("Total Upload")%></span>
+                    <span class="data-val" id="total-tx">0 B</span>
                 </div>
-                <div class="stat-row" style="margin-top: 10px; border:none">
-                    <span class="stat-name" style="color:var(--text-muted)"><%=_("Network IP")%></span>
-                    <span class="stat-val" id="wan-ip-display">--</span>
+                <div class="data-row">
+                    <span class="data-label">WAN Device</span>
+                    <span class="data-val" id="wan-dev">Detecting...</span>
                 </div>
             </div>
         </div>
 
-        <!-- 活跃域名排行 -->
-        <div class="stats-card">
+        <!-- Domains Ranking -->
+        <div class="glass-card">
             <div class="card-title"><%=_("Top Domains")%></div>
-            <div id="domain-list" class="stat-list">
-                <!-- 动态加载 -->
+            <div id="domain-list">
+                <!-- Dynamic -->
             </div>
         </div>
 
-        <!-- 流量类型分布 -->
-        <div class="stats-card">
+        <!-- Distribution -->
+        <div class="glass-card">
             <div class="card-title"><%=_("Traffic Breakdown")%></div>
-            <div id="type-list" class="stat-list">
-                <!-- 动态加载 -->
+            <div id="type-list">
+                <!-- Dynamic -->
             </div>
         </div>
     </div>

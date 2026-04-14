@@ -41,3 +41,12 @@ msgstr "运行时间"
 
 msgid "Firmware"
 msgstr "固件"
+
+msgid "WAN Device"
+msgstr "出口设备"
+
+msgid "Collecting data..."
+msgstr "正在收集统计数据..."
+
+msgid "Waiting for nlbwmon..."
+msgstr "等待 nlbwmon 服务响应..."
