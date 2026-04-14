@@ -1,0 +1,36 @@
+# Force LF line endings in the repository for all text files.
+# This prevents Windows autocrlf from converting LF→CRLF and
+# breaking the OpenWrt/Linux make build (exit code 2).
+
+* text=auto eol=lf
+
+# Explicitly mark build-critical files as LF
+Makefile        text eol=lf
+*.lua           text eol=lf
+*.sh            text eol=lf
+*.htm           text eol=lf
+*.html          text eol=lf
+*.json          text eol=lf
+*.po            text eol=lf
+*.pot           text eol=lf
+*.md            text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.conf          text eol=lf
+*.cfg           text eol=lf
+*.mk            text eol=lf
+*.css           text eol=lf
+*.js            text eol=lf
+
+# Binary files — never touch line endings
+*.ipk           binary
+*.gz            binary
+*.tar           binary
+*.zip           binary
+*.png           binary
+*.jpg           binary
+*.ico           binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.eot           binary
