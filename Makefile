@@ -6,12 +6,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-dashboard
-PKG_VERSION:=1.4.16
+PKG_VERSION:=1.4.17
 PKG_MAINTAINER:=dashboard-community
 
 LUCI_TITLE:=LuCI Dashboard
 LUCI_DESCRIPTION:=A simple dashboard for system, network and storage status.
-LUCI_DEPENDS:=+luci-app-nlbwmon
+LUCI_DEPENDS:=+luci-app-nlbwmon +luci-app-samba4
 LUCI_PKGARCH:=all
 
 LUCI_MINIFY_CSS:=0

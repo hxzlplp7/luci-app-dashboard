@@ -74,9 +74,13 @@ end
 -- =====================================================================
 
 local function api_sysinfo()
-    -- Model
-    local model    = (read_line("/tmp/sysinfo/model") or "OpenWrt")
-    model          = model:gsub("^%s+", ""):gsub("%s+$", "")
+    -- Get Model: Combined methods including device-tree for robustness
+    local model = ""
+    local boardinfo = util.ubus("system", "board", {})
+    if type(boardinfo) == "table" and boardinfo.model then model = boardinfo.model end
+    if model == "" then model = exec_trim("cat /tmp/sysinfo/model 2>/dev/null") end
+    if model == "" then model = exec_trim("cat /proc/device-tree/model 2>/dev/null | tr -d '\\0'") end
+    if model == "" then model = "Generic Device" end
 
     -- Firmware version
     local release  = read_all("/etc/openwrt_release") or ""
@@ -127,6 +131,9 @@ local function api_sysinfo()
     local ma       = mem.MemAvailable or mem.MemFree or 0
     local memUsage = math.floor((mt - ma) * 100 / mt)
 
+    -- Check for samba4 presence
+    local hasSamba4 = path_exists("/usr/lib/lua/luci/controller/samba4.lua") or path_exists("/etc/config/samba4")
+
     http.prepare_content("application/json")
     http.write(jsonc.stringify({
         model       = model,
@@ -137,6 +144,7 @@ local function api_sysinfo()
         uptime_raw  = uptime_raw,
         cpuUsage    = cpuUsage,
         memUsage    = memUsage,
+        hasSamba4   = hasSamba4
     }))
 end
 
@@ -277,77 +285,72 @@ end
 -- =====================================================================
 
 local function api_domains()
-    local list, source = {}, "none"
+    local result = { top = {}, recent = {} }
+    local source = "none"
+    local lines = {}
+    local counts = {}
 
-    -- ── Strategy 1: nlbw CLI (Preferred for hostnames) ──────
-    if path_exists("/usr/sbin/nlbw") then
-        local raw = exec_trim("nlbw -c json -g host 2>/dev/null")
-        if raw ~= "" then
-            local ok, data = pcall(jsonc.parse, raw)
-            if ok and type(data) == "table" then
-                local entries = {}
-                for _, row in ipairs(data) do
-                    local host  = row.host or row.ip or ""
-                    local total = (tonumber(row.rx_bytes) or 0)
-                        + (tonumber(row.tx_bytes) or 0)
-                    if host ~= "" and total > 0 then
-                        entries[#entries + 1] = {
-                            domain = host,
-                            count  = math.floor(total / 1024),
-                        }
-                    end
-                end
-                table.sort(entries, function(a, b) return a.count > b.count end)
-                if #entries > 0 then
-                    source = "nlbwmon"
-                    for i = 1, math.min(20, #entries) do
-                        list[#list + 1] = entries[i]
-                    end
+    -- Try OpenClash logs first
+    if path_exists("/tmp/openclash.log") then
+        source = "openclash"
+        local p = io.popen('grep -iE "dns|connect|host|sni" /tmp/openclash.log 2>/dev/null | tail -n 1000')
+        if p then
+            for line in p:lines() do
+                local domain = line:match("-->%s*([%w%-%.]+)%:%d+") 
+                    or line:match("%[DNS%]%s*([%w%-%.]+)") 
+                    or line:match("host=([%w%-%.]+)") 
+                    or line:match("sni=([%w%-%.]+)")
+                
+                if domain and domain:match("%..") and not domain:match("^%d+%.%d+%.%d+%.%d+$") 
+                   and not domain:match("^192%.168%.") and not domain:match("^127%.") 
+                   and not domain:match("^10%.") then
+                    table.insert(lines, domain)
                 end
             end
+            p:close()
+        end
+    else
+        -- Fallback to dnsmasq logs
+        source = "dnsmasq"
+        local p = io.popen("logread | grep -i dnsmasq | tail -n 1000")
+        if p then
+            for line in p:lines() do
+                local domain = line:match("query%[%w+%]*%s+([%w%-%.]+)%s+from") or line:match("reply%s+([%w%-%.]+)%s+is")
+                if domain and not domain:match("^%d+%.%d+%.%d+%.%d+$") and not domain:match("in%-addr%.arpa") then 
+                    table.insert(lines, domain)
+                end
+            end
+            p:close()
         end
     end
 
-    -- ── Strategy 2: /proc/net/nf_conntrack (Fallback to raw IPs) ───
-    if #list == 0 then
-        local ct = read_all("/proc/net/nf_conntrack") or ""
-        if ct ~= "" then
-            local counts = {}
-            for line in ct:gmatch("[^\n]+") do
-                if line:find("ESTABLISHED", 1, true) or line:find("TIME_WAIT", 1, true) then
-                    local dst = line:match("dst=(%d+%.%d+%.%d+%.%d+)")
-                    if dst then
-                        local is_private =
-                            dst:match("^10%.") or
-                            dst:match("^192%.168%.") or
-                            dst:match("^172%.1[6-9]%.") or
-                            dst:match("^172%.2%d%.") or
-                            dst:match("^172%.3[01]%.") or
-                            dst:match("^127%.") or
-                            dst:match("^169%.254%.") or
-                            dst:match("^0%.")
-                        if not is_private then
-                            counts[dst] = (counts[dst] or 0) + 1
-                        end
-                    end
-                end
-            end
-            local entries = {}
-            for ip, cnt in pairs(counts) do
-                entries[#entries + 1] = { domain = ip, count = cnt }
-            end
-            table.sort(entries, function(a, b) return a.count > b.count end)
-            if #entries > 0 then
-                source = "conntrack"
-                for i = 1, math.min(20, #entries) do
-                    list[#list + 1] = entries[i]
-                end
-            end
+    -- Count frequencies
+    for i = 1, #lines do
+        local d = lines[i]
+        counts[d] = (counts[d] or 0) + 1
+    end
+
+    -- Top 10 rankings
+    local sortable = {}
+    for d, c in pairs(counts) do table.insert(sortable, {domain = d, count = c}) end
+    table.sort(sortable, function(a, b) return a.count > b.count end)
+    for i = 1, math.min(10, #sortable) do table.insert(result.top, sortable[i]) end
+
+    -- Recent 10 unique domains
+    local seen_recent = {}
+    for i = #lines, 1, -1 do
+        local d = lines[i]
+        if not seen_recent[d] then
+            seen_recent[d] = true
+            table.insert(result.recent, {domain = d, count = counts[d]})
+            if #result.recent >= 10 then break end
         end
     end
+
+    if #result.top == 0 and #result.recent == 0 then source = "none" end
 
     http.prepare_content("application/json")
-    http.write(jsonc.stringify({ source = source, list = list }))
+    http.write(jsonc.stringify({ source = source, top = result.top, recent = result.recent }))
 end
 
 -- =====================================================================
