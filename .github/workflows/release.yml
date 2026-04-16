@@ -33,6 +33,16 @@ jobs:
             --exclude '.feed' \
             ./ ./.feed/${{ env.PKG_NAME }}/
 
+      - name: Install Host Validators
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1
+
+      - name: Run Host Checks
+        run: |
+          lua tests/lua/run.lua tests/lua/test_response.lua
+          lua tests/lua/run.lua tests/lua/test_validation.lua
+
       - name: Build Package
         uses: openwrt/gh-action-sdk@main
         env:
