@@ -2,6 +2,10 @@ local validation = require("luci.dashboard.validation")
 
 assert(validation.is_ipv4("192.168.1.1") == true, "valid ip rejected")
 assert(validation.is_ipv4("999.1.1.1") == false, "invalid ip accepted")
+assert(validation.is_ipv4("1e2.1.1.1") == false, "scientific notation should be rejected")
+assert(validation.is_ipv4(" 192.168.1.1") == false, "leading spaces should be rejected")
+assert(validation.is_ipv4("+1.1.1.1") == false, "signed octets should be rejected")
+assert(validation.is_ipv4("1..1.1") == false, "empty octets should be rejected")
 assert(validation.is_netmask("255.255.255.0") == true, "valid netmask rejected")
 assert(validation.is_netmask("255.0.255.0") == false, "invalid netmask accepted")
 assert(validation.is_iface_name("br-lan") == true, "valid iface rejected")
@@ -48,3 +52,42 @@ assert(uci_state.get_calls == 1, "capabilities should read history path once")
 assert(detected.history_store == true, "history store should follow configured path")
 
 os.remove(uci_state.history_data_path)
+
+local open_state = {
+  ["/etc/config/samba4"] = true,
+  ["/tmp/openclash.log"] = true,
+  ["/etc/dashboard/feature/feature.cfg"] = true,
+  [uci_state.history_data_path] = true
+}
+
+local rename_state = {
+  ["/usr/share/nlbwmon"] = true
+}
+
+local original_io_open = io.open
+local original_os_rename = os.rename
+
+io.open = function(path, mode)
+  if open_state[path] then
+    return {
+      close = function() end
+    }
+  end
+  return nil
+end
+
+os.rename = function(path, target)
+  if path == target and rename_state[path] then
+    return true
+  end
+  return nil
+end
+
+local detected_with_stubs = capabilities.detect()
+assert(detected_with_stubs.nlbwmon == true, "directory presence should be detected")
+assert(detected_with_stubs.samba4 == true, "samba4 file presence should be detected")
+assert(detected_with_stubs.domain_logs == true, "domain log presence should be detected")
+assert(detected_with_stubs.feature_library == true, "feature library presence should be detected")
+
+io.open = original_io_open
+os.rename = original_os_rename

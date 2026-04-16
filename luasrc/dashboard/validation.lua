@@ -1,22 +1,12 @@
 local M = {}
 
-local function split_ipv4(value)
-  local parts = {}
-  for part in tostring(value or ""):gmatch("([^.]+)") do
-    parts[#parts + 1] = tonumber(part)
-  end
-  if #parts ~= 4 then
-    return nil
-  end
-  return parts
-end
-
 function M.is_ipv4(value)
-  local parts = split_ipv4(value)
-  if not parts then
+  local a, b, c, d = tostring(value or ""):match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
+  if not a then
     return false
   end
-  for _, part in ipairs(parts) do
+
+  for _, part in ipairs({ tonumber(a), tonumber(b), tonumber(c), tonumber(d) }) do
     if not part or part < 0 or part > 255 then
       return false
     end

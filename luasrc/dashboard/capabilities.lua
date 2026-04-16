@@ -6,7 +6,8 @@ local function path_exists(path)
     f:close()
     return true
   end
-  return false
+
+  return os.rename(path, path) and true or false
 end
 
 function M.detect()
