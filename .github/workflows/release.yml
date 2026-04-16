@@ -40,8 +40,8 @@ jobs:
 
       - name: Run Host Checks
         run: |
-          lua tests/lua/run.lua tests/lua/test_response.lua
-          lua tests/lua/run.lua tests/lua/test_validation.lua
+          lua5.1 tests/lua/run.lua tests/lua/test_response.lua
+          lua5.1 tests/lua/run.lua tests/lua/test_validation.lua
 
       - name: Build Package
         uses: openwrt/gh-action-sdk@main

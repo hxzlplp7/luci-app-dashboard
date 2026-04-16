@@ -8,7 +8,7 @@ function M.require_session()
     local sid = http.getcookie(key)
     if sid then
       local session = util.ubus("session", "get", { ubus_rpc_session = sid })
-      if type(session) == "table" and type(session.values) == "table" then
+      if type(session) == "table" and type(session.values) == "table" and type(session.values.token) == "string" then
         return sid, session.values
       end
     end

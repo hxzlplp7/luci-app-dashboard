@@ -1,9 +1,9 @@
-config core 'main'
+config core 'core'
 	option monitor_device 'wan'
 	option lan_ifname 'br-lan'
 	option work_mode '0'
 
-config record 'main'
+config record 'record'
 	option enable '0'
 	option record_time '7'
 	option app_valid_time '5'
