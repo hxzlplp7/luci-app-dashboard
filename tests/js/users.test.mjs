@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const usersModuleUrl = new URL('../../htdocs/luci-static/dashboard/sections-users.js', import.meta.url);
+const appModuleUrl = new URL('../../htdocs/luci-static/dashboard/app.js', import.meta.url);
 
 function installDashboardApp(apiBase) {
   const originalDocument = globalThis.document;
@@ -191,4 +192,33 @@ test('saveUserRemark posts mac and value form fields', async () => {
     globalThis.fetch = originalFetch;
     restoreDocument();
   }
+});
+
+test('applySavedRemarkResult updates only the saved target user', async () => {
+  const { applySavedRemarkResult } = await import(appModuleUrl);
+
+  const dashboard = {
+    users: {
+      list: [
+        { mac: 'AA:AA:AA:AA:AA:AA', nickname: 'Alpha' },
+        { mac: 'BB:BB:BB:BB:BB:BB', nickname: 'Beta' },
+      ],
+    },
+    userDrawer: {
+      open: true,
+      mac: 'BB:BB:BB:BB:BB:BB',
+      detail: {
+        device: {
+          mac: 'BB:BB:BB:BB:BB:BB',
+          nickname: 'Beta',
+        },
+      },
+    },
+  };
+
+  applySavedRemarkResult(dashboard, 'AA:AA:AA:AA:AA:AA', 'Updated Alpha');
+
+  assert.equal(dashboard.users.list[0].nickname, 'Updated Alpha');
+  assert.equal(dashboard.users.list[1].nickname, 'Beta');
+  assert.equal(dashboard.userDrawer.detail.device.nickname, 'Beta');
 });

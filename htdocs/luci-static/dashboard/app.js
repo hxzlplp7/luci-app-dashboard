@@ -72,6 +72,47 @@ function getUserDisplayName(user) {
   return user.nickname || user.hostname || user.mac || '-';
 }
 
+function createUserDrawerState() {
+  return {
+    open: false,
+    mac: '',
+    loading: false,
+    saving: false,
+    detailError: null,
+    saveError: null,
+    detail: null,
+  };
+}
+
+export function applySavedRemarkResult(dashboard, targetMac, targetValue) {
+  if (!dashboard || !targetMac) {
+    return dashboard;
+  }
+
+  if (dashboard.users && Array.isArray(dashboard.users.list)) {
+    dashboard.users.list = dashboard.users.list.map((item) =>
+      item.mac === targetMac ? { ...item, nickname: targetValue } : item
+    );
+  }
+
+  if (
+    dashboard.userDrawer &&
+    dashboard.userDrawer.open &&
+    dashboard.userDrawer.mac === targetMac &&
+    dashboard.userDrawer.detail
+  ) {
+    dashboard.userDrawer.detail = {
+      ...dashboard.userDrawer.detail,
+      device: {
+        ...dashboard.userDrawer.detail.device,
+        nickname: targetValue,
+      },
+    };
+  }
+
+  return dashboard;
+}
+
 function renderSectionFrame(sectionName, bodyHtml, badgeHtml = '') {
   const mount = document.querySelector(`[data-section="${sectionName}"]`);
   if (!mount) {
@@ -288,36 +329,29 @@ function attachUserDrawerEvents() {
       }
 
       const input = root.querySelector('[data-drawer-remark]');
-      const value = input ? input.value : '';
+      const targetMac = dashboard.userDrawer.mac;
+      const targetValue = input ? input.value : '';
 
       dashboard.userDrawer.saving = true;
-      dashboard.userDrawer.error = null;
+      dashboard.userDrawer.saveError = null;
       renderUserDrawer();
 
       try {
-        await saveUserRemark(dashboard.userDrawer.mac, value);
+        await saveUserRemark(targetMac, targetValue);
+        applySavedRemarkResult(dashboard, targetMac, targetValue);
 
-        if (dashboard.users && Array.isArray(dashboard.users.list)) {
-          dashboard.users.list = dashboard.users.list.map((item) =>
-            item.mac === dashboard.userDrawer.mac ? { ...item, nickname: value } : item
-          );
+        if (dashboard.users) {
           renderUsersContent(dashboard.users);
         }
-
-        if (dashboard.userDrawer.detail) {
-          dashboard.userDrawer.detail = {
-            ...dashboard.userDrawer.detail,
-            device: {
-              ...dashboard.userDrawer.detail.device,
-              nickname: value,
-            },
-          };
-        }
       } catch (error) {
-        dashboard.userDrawer.error = error;
+        if (dashboard.userDrawer && dashboard.userDrawer.open && dashboard.userDrawer.mac === targetMac) {
+          dashboard.userDrawer.saveError = error;
+        }
       } finally {
-        dashboard.userDrawer.saving = false;
-        renderUserDrawer();
+        if (dashboard.userDrawer && dashboard.userDrawer.open && dashboard.userDrawer.mac === targetMac) {
+          dashboard.userDrawer.saving = false;
+          renderUserDrawer();
+        }
       }
     });
   }
@@ -339,12 +373,15 @@ function renderUserDrawer() {
 
   let content = '<p class="dashboard-note">Loading user detail...</p>';
 
-  if (drawerState.error) {
-    content = `<p class="dashboard-note">Failed to load detail.</p><p class="dashboard-note is-muted">${escapeHtml(drawerState.error.message || 'Unknown error')}</p>`;
+  if (drawerState.detailError) {
+    content = `<p class="dashboard-note">Failed to load detail.</p><p class="dashboard-note is-muted">${escapeHtml(drawerState.detailError.message || 'Unknown error')}</p>`;
   } else if (!drawerState.loading && drawerState.detail) {
     const detail = drawerState.detail;
     const device = detail.device;
     const traffic = detail.traffic;
+    const saveErrorMarkup = drawerState.saveError
+      ? `<p class="dashboard-note is-muted" style="margin:12px 0 0;color:#b91c1c;">${escapeHtml(drawerState.saveError.message || 'Unknown error')}</p>`
+      : '';
 
     content = `
       <div class="dashboard-overview-grid">
@@ -384,6 +421,7 @@ function renderUserDrawer() {
             ${drawerState.saving ? 'Saving...' : 'Save Remark'}
           </button>
         </div>
+        ${saveErrorMarkup}
       </div>
       <div style="margin-top:16px;">
         <p class="dashboard-metric-label">Recent Domains</p>
@@ -393,11 +431,6 @@ function renderUserDrawer() {
       </div>
     `;
   }
-
-  const errorMarkup =
-    drawerState.error && !drawerState.loading
-      ? `<p class="dashboard-note is-muted" style="margin-top:12px;color:#b91c1c;">${escapeHtml(drawerState.error.message || 'Unknown error')}</p>`
-      : '';
 
   root.innerHTML = `
     <div data-drawer-backdrop style="position:fixed;inset:0;background:rgba(15,23,42,0.35);z-index:1000;"></div>
@@ -417,7 +450,6 @@ function renderUserDrawer() {
       </div>
       <div style="margin-top:16px;">
         ${content}
-        ${errorMarkup}
       </div>
     </aside>
   `;
@@ -443,7 +475,8 @@ export async function openUserDrawer(mac) {
     mac,
     loading: true,
     saving: false,
-    error: null,
+    detailError: null,
+    saveError: null,
     detail: null,
   };
 
@@ -461,7 +494,7 @@ export async function openUserDrawer(mac) {
       return;
     }
 
-    dashboard.userDrawer.error = error;
+    dashboard.userDrawer.detailError = error;
   } finally {
     if (window.dashboardState.userDrawer.mac === mac) {
       dashboard.userDrawer.loading = false;
@@ -477,18 +510,17 @@ export function closeUserDrawer() {
   }
 
   dashboard.userDrawer = {
-    open: false,
-    mac: '',
-    loading: false,
-    saving: false,
-    error: null,
-    detail: null,
+    ...createUserDrawerState(),
   };
 
   renderUserDrawer();
 }
 
 async function bootstrapDashboard() {
+  if (typeof document === 'undefined' || typeof document.getElementById !== 'function') {
+    return;
+  }
+
   const container = document.getElementById('dashboard-app');
   if (!container) {
     return;
@@ -499,14 +531,7 @@ async function bootstrapDashboard() {
     state,
     overview: null,
     users: null,
-    userDrawer: {
-      open: false,
-      mac: '',
-      loading: false,
-      saving: false,
-      error: null,
-      detail: null,
-    },
+    userDrawer: createUserDrawerState(),
   };
 
   for (const sectionName of ['network', 'system', 'record', 'feature', 'settings']) {
