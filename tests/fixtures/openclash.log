@@ -1,1 +1,5 @@
-# minimal fixture for Task 2
+Thu Apr 17 12:00:01 2026 daemon.notice openclash[1234]: [DNS] example.com
+Thu Apr 17 12:00:02 2026 daemon.notice openclash[1234]: [DNS] api.example.com
+Thu Apr 17 12:00:03 2026 daemon.notice openclash[1234]: [TCP] 192.168.1.10:52344 --> www.google.com:443 match DOMAIN-SUFFIX,google.com
+Thu Apr 17 12:00:04 2026 daemon.notice openclash[1234]: [TCP] connect host=downloads.openwrt.org
+Thu Apr 17 12:00:05 2026 daemon.notice openclash[1234]: [TLS] sni=github.com

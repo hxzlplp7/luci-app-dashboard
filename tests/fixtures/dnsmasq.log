@@ -1,1 +1,6 @@
-# minimal fixture for Task 2
+Apr 17 12:00:01 dnsmasq[2234]: query[A] example.org from 192.168.1.10
+Apr 17 12:00:01 dnsmasq[2234]: forwarded example.org to 8.8.8.8
+Apr 17 12:00:02 dnsmasq[2234]: reply example.org is 93.184.216.34
+Apr 17 12:00:03 dnsmasq[2234]: query[AAAA] openwrt.org from 192.168.1.11
+Apr 17 12:00:04 dnsmasq[2234]: reply openwrt.org is 2a00:1450:4009:80a::200e
+Apr 17 12:00:05 dnsmasq[2234]: query[A] downloads.openwrt.org from 192.168.1.12
