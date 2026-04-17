@@ -44,6 +44,7 @@ do
       ["/tmp/dashboard/history/day-1.json"] = { type = "file" },
       ["/tmp/dashboard/history/day-2.json"] = { type = "file" },
       ["/tmp/dashboard/history.json"] = { type = "file" },
+      ["/tmp/dashboard/link-out"] = { type = "link" },
       ["/tmp/dashboard/history/link-child"] = { type = "dir" },
       ["/tmp/dashboard/broken-link"] = { type = "link" },
       ["/etc/passwd"] = { type = "file" }
