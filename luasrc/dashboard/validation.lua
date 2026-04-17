@@ -46,7 +46,7 @@ function M.is_netmask(value)
 end
 
 function M.is_iface_name(value)
-  return tostring(value or ""):match("^[A-Za-z0-9%-_]+$") ~= nil
+  return tostring(value or ""):match("^[A-Za-z0-9._-]+$") ~= nil
 end
 
 return M

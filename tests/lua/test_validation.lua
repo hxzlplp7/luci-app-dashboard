@@ -9,6 +9,8 @@ assert(validation.is_ipv4("1..1.1") == false, "empty octets should be rejected")
 assert(validation.is_netmask("255.255.255.0") == true, "valid netmask rejected")
 assert(validation.is_netmask("255.0.255.0") == false, "invalid netmask accepted")
 assert(validation.is_iface_name("br-lan") == true, "valid iface rejected")
+assert(validation.is_iface_name("eth0.2") == true, "vlan iface should be accepted")
+assert(validation.is_iface_name("wan.2") == true, "dotted iface should be accepted")
 assert(validation.is_iface_name("lan/eth0") == false, "invalid iface accepted")
 
 local config_file = assert(io.open("root/etc/config/dashboard", "r"))
@@ -56,7 +58,7 @@ os.remove(uci_state.history_data_path)
 local open_state = {
   ["/etc/config/samba4"] = true,
   ["/tmp/openclash.log"] = true,
-  ["/etc/dashboard/feature/feature.cfg"] = true,
+  ["/etc/dashboard/feature/feature.info.json"] = true,
   [uci_state.history_data_path] = true
 }
 
@@ -87,7 +89,7 @@ local detected_with_stubs = capabilities.detect()
 assert(detected_with_stubs.nlbwmon == true, "directory presence should be detected")
 assert(detected_with_stubs.samba4 == true, "samba4 file presence should be detected")
 assert(detected_with_stubs.domain_logs == true, "domain log presence should be detected")
-assert(detected_with_stubs.feature_library == true, "feature library presence should be detected")
+assert(detected_with_stubs.feature_library == true, "feature metadata presence should be detected")
 
 io.open = original_io_open
 os.rename = original_os_rename
