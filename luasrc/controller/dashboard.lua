@@ -5,7 +5,10 @@ local session = require("luci.dashboard.session")
 
 local PAGE_TEMPLATE = "dashboard/main"
 local API_ROUTES = {
-  ["GET:/overview"] = { "luci.dashboard.api.overview", "get" }
+  ["GET:/overview"] = { "luci.dashboard.api.overview", "get" },
+  ["GET:/users"] = { "luci.dashboard.api.users", "list" },
+  ["GET:/users/detail"] = { "luci.dashboard.api.users", "detail" },
+  ["POST:/users/remark"] = { "luci.dashboard.api.users", "remark" }
 }
 local COMPAT_ROUTES = {
   ["GET:/sysinfo"] = function()
