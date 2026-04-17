@@ -36,12 +36,13 @@ function normalizeUser(raw) {
 
 export function normalizeUsers(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
+  const list = cloneList(source.list).map(normalizeUser);
 
   return {
     page: Number.isFinite(source.page) ? source.page : 1,
     page_size: Number.isFinite(source.page_size) ? source.page_size : 20,
-    total_num: Number.isFinite(source.total_num) ? source.total_num : 0,
-    list: cloneList(source.list).map(normalizeUser),
+    total_num: Number.isFinite(source.total_num) ? source.total_num : list.length,
+    list,
   };
 }
 
@@ -56,8 +57,12 @@ export function normalizeUserDetail(raw) {
   };
 }
 
-export async function loadUsers() {
-  const raw = await dashboardApi('/users');
+export async function loadUsers(page = 1, pageSize = 20) {
+  const query = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  const raw = await dashboardApi(`/users?${query.toString()}`);
   return normalizeUsers(raw);
 }
 

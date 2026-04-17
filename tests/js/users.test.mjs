@@ -44,7 +44,8 @@ test('normalizeUsers fills list defaults and traffic defaults', async () => {
 
   assert.equal(payload.page, 1);
   assert.equal(payload.page_size, 20);
-  assert.equal(payload.total_num, 0);
+  assert.equal(payload.total_num, payload.list.length);
+  assert.equal(payload.list[0].mac, 'AA:BB:CC:DD:EE:FF');
   assert.equal(payload.list[0].nickname, '');
   assert.equal(payload.list[0].hostname, 'phone');
   assert.equal(payload.list[0].traffic.supported, false);
@@ -67,7 +68,7 @@ test('normalizeUserDetail fills nested defaults', async () => {
   assert.equal(detail.traffic.supported, false);
 });
 
-test('loadUsers requests users endpoint and normalizes payload', async () => {
+test('loadUsers requests users endpoint with paging params and normalizes payload', async () => {
   const originalFetch = globalThis.fetch;
   const restoreDocument = installDashboardApp('/proxy/base/admin/dashboard/api');
   const requests = [];
@@ -100,10 +101,10 @@ test('loadUsers requests users endpoint and normalizes payload', async () => {
 
   try {
     const { loadUsers } = await import(usersModuleUrl);
-    const payload = await loadUsers();
+    const payload = await loadUsers(3, 50);
 
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].url, '/proxy/base/admin/dashboard/api/users');
+    assert.equal(requests[0].url, '/proxy/base/admin/dashboard/api/users?page=3&page_size=50');
     assert.equal(payload.total_num, 1);
     assert.equal(payload.list[0].nickname, 'Tablet');
     assert.equal(payload.list[0].traffic.today_up_bytes, 12);
