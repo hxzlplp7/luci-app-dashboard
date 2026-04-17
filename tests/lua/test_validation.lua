@@ -11,6 +11,12 @@ assert(validation.is_netmask("255.0.255.0") == false, "invalid netmask accepted"
 assert(validation.is_iface_name("br-lan") == true, "valid iface rejected")
 assert(validation.is_iface_name("eth0.2") == true, "vlan iface should be accepted")
 assert(validation.is_iface_name("wan.2") == true, "dotted iface should be accepted")
+assert(validation.is_iface_name(".") == false, "single dot should be rejected")
+assert(validation.is_iface_name("..") == false, "double dot should be rejected")
+assert(validation.is_iface_name("-") == false, "single dash should be rejected")
+assert(validation.is_iface_name("_") == false, "single underscore should be rejected")
+assert(validation.is_iface_name(".wan") == false, "leading dot should be rejected")
+assert(validation.is_iface_name("wan.") == false, "trailing dot should be rejected")
 assert(validation.is_iface_name("lan/eth0") == false, "invalid iface accepted")
 
 local config_file = assert(io.open("root/etc/config/dashboard", "r"))
@@ -21,6 +27,15 @@ assert(config_text:match("config core 'core'") ~= nil, "core section should be u
 assert(config_text:match("config record 'record'") ~= nil, "record section should be unique")
 assert(config_text:match("config core 'main'") == nil, "legacy core section name should be removed")
 assert(config_text:match("config record 'main'") == nil, "legacy record section name should be removed")
+
+local makefile = assert(io.open("Makefile", "r"))
+local makefile_text = assert(makefile:read("*a"))
+makefile:close()
+
+assert(makefile_text:match("LUCI_DEPENDS:=.-%+luci%-lib%-jsonc") ~= nil, "Makefile should keep luci-lib-jsonc")
+assert(makefile_text:match("LUCI_DEPENDS:=.-%+luci%-compat") ~= nil, "Makefile should keep luci-compat")
+assert(makefile_text:match("LUCI_DEPENDS:=.-%+luci%-app%-nlbwmon") ~= nil, "Makefile should keep nlbwmon dependency")
+assert(makefile_text:match("LUCI_DEPENDS:=.-%+luci%-app%-samba4") ~= nil, "Makefile should keep samba4 dependency")
 
 local uci_state = { cursor_calls = 0, get_calls = 0, history_data_path = os.tmpname() }
 
