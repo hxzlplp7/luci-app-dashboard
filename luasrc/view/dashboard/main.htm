@@ -6,7 +6,12 @@
 
 <div class="dashboard-page">
     <main class="dashboard-shell">
-        <div id="dashboard-app" class="dashboard-app" aria-live="polite">
+        <div
+            id="dashboard-app"
+            class="dashboard-app"
+            data-api-base="<%=url("admin/dashboard/api")%>"
+            aria-live="polite"
+        >
             <section class="dashboard-panel" data-section="overview"></section>
             <section class="dashboard-panel" data-section="users"></section>
             <section class="dashboard-panel" data-section="network"></section>

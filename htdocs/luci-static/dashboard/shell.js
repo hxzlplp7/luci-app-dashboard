@@ -8,18 +8,13 @@ function createSectionState(expanded) {
 }
 
 export function buildSectionState() {
-  const record = createSectionState(false);
-  const feature = createSectionState(false);
-
   return {
     overview: createSectionState(true),
     users: createSectionState(false),
     network: createSectionState(false),
     system: createSectionState(false),
-    record,
-    feature,
+    record: createSectionState(false),
+    feature: createSectionState(false),
     settings: createSectionState(false),
-    records: record,
-    features: feature,
   };
 }
