@@ -17,7 +17,21 @@ table.insert(package.loaders, 2, function(module_name)
       local target_name = target_prefix .. module_name:sub(#source_prefix + 1)
       return function()
         local loaded = require(target_name)
-        return package.loaded[module_name] or package.loaded[target_name] or loaded
+        if loaded ~= nil and loaded ~= true then
+          return loaded
+        end
+
+        local module_loaded = package.loaded[module_name]
+        if module_loaded ~= nil and module_loaded ~= true then
+          return module_loaded
+        end
+
+        local target_loaded = package.loaded[target_name]
+        if target_loaded ~= nil and target_loaded ~= true then
+          return target_loaded
+        end
+
+        return module_loaded or target_loaded or loaded
       end
     end
   end
