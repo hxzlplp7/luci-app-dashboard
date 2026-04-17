@@ -1,5 +1,6 @@
 import { buildSectionState } from './shell.js';
 import { loadOverview } from './sections-overview.js';
+import { loadRecordSettings, runRecordAction, saveRecordSettings } from './sections-record.js';
 import { loadUserDetail, loadUsers, saveUserRemark } from './sections-users.js';
 
 const SECTION_META = {
@@ -21,7 +22,7 @@ const SECTION_META = {
   },
   record: {
     title: 'Record',
-    subtitle: 'Waiting for module wiring',
+    subtitle: 'Primary data source: /record/base',
   },
   feature: {
     title: 'Feature',
@@ -81,6 +82,15 @@ function createUserDrawerState() {
     detailError: null,
     saveError: null,
     detail: null,
+  };
+}
+
+function createRecordPanelState() {
+  return {
+    saving: false,
+    clearing: false,
+    error: null,
+    notice: '',
   };
 }
 
@@ -210,6 +220,168 @@ function renderPlaceholder(sectionName) {
     sectionName,
     '<p class="dashboard-note">Pending integration.</p><p class="dashboard-note is-muted">This section is scaffolded and ready for its dedicated module.</p>'
   );
+}
+
+function renderRecordLoading() {
+  renderSectionFrame(
+    'record',
+    '<p class="dashboard-note">Loading record settings from <code>/record/base</code>...</p>',
+    '<span class="dashboard-status-badge">Loading</span>'
+  );
+}
+
+function renderRecordError(error) {
+  renderSectionFrame(
+    'record',
+    `<p class="dashboard-note">Record settings failed to load.</p><p class="dashboard-note is-muted">${escapeHtml(error.message || 'Unknown error')}</p>`,
+    '<span class="dashboard-status-badge is-error">Error</span>'
+  );
+}
+
+function readRecordDraft(mount) {
+  const readValue = (selector, fallback = '') => {
+    const element = mount.querySelector(selector);
+    return element ? element.value : fallback;
+  };
+
+  return {
+    enable: readValue('[name="enable"]', '0'),
+    record_time: readValue('[name="record_time"]'),
+    app_valid_time: readValue('[name="app_valid_time"]'),
+    history_data_size: readValue('[name="history_data_size"]'),
+    history_data_path: readValue('[name="history_data_path"]'),
+  };
+}
+
+function attachRecordEvents() {
+  const mount = document.querySelector('[data-section="record"]');
+  if (!mount) {
+    return;
+  }
+
+  const form = mount.querySelector('[data-record-form]');
+  const clearButton = mount.querySelector('[data-record-clear]');
+
+  if (form) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const dashboard = window.dashboardState;
+      if (!dashboard || dashboard.recordPanel.saving || dashboard.recordPanel.clearing) {
+        return;
+      }
+
+      const draft = readRecordDraft(mount);
+      dashboard.record = draft;
+      dashboard.recordPanel = {
+        ...dashboard.recordPanel,
+        saving: true,
+        error: null,
+        notice: '',
+      };
+      renderRecordContent(dashboard.record);
+
+      try {
+        const saved = await saveRecordSettings(draft);
+        dashboard.record = saved;
+        dashboard.recordPanel.notice = 'Record settings saved.';
+      } catch (error) {
+        dashboard.recordPanel.error = error;
+      } finally {
+        dashboard.recordPanel.saving = false;
+        renderRecordContent(dashboard.record);
+      }
+    });
+  }
+
+  if (clearButton) {
+    clearButton.addEventListener('click', async () => {
+      const dashboard = window.dashboardState;
+      if (!dashboard || dashboard.recordPanel.saving || dashboard.recordPanel.clearing) {
+        return;
+      }
+
+      dashboard.recordPanel = {
+        ...dashboard.recordPanel,
+        clearing: true,
+        error: null,
+        notice: '',
+      };
+      renderRecordContent(dashboard.record);
+
+      try {
+        await runRecordAction('clear_history');
+        dashboard.recordPanel.notice = 'History data cleared.';
+      } catch (error) {
+        dashboard.recordPanel.error = error;
+      } finally {
+        dashboard.recordPanel.clearing = false;
+        renderRecordContent(dashboard.record);
+      }
+    });
+  }
+}
+
+function renderRecordContent(recordSettings) {
+  const dashboard = window.dashboardState || {};
+  const record = recordSettings || dashboard.record || {
+    enable: '0',
+    record_time: '',
+    app_valid_time: '',
+    history_data_size: '',
+    history_data_path: '',
+  };
+  const panel = dashboard.recordPanel || createRecordPanelState();
+  const messageMarkup = panel.error
+    ? `<p class="dashboard-note is-muted" style="margin:0 0 12px;color:#b91c1c;">${escapeHtml(panel.error.message || 'Unknown error')}</p>`
+    : panel.notice
+      ? `<p class="dashboard-note" style="margin:0 0 12px;color:#166534;">${escapeHtml(panel.notice)}</p>`
+      : '';
+  const badgeLabel = panel.saving || panel.clearing ? 'Working' : 'Live';
+
+  renderSectionFrame(
+    'record',
+    `
+      ${messageMarkup}
+      <form data-record-form>
+        <div class="dashboard-overview-grid">
+          <label class="dashboard-metric" for="dashboard-record-enable">
+            <span class="dashboard-metric-label">Enable</span>
+            <select id="dashboard-record-enable" name="enable" style="margin-top:8px;width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;box-sizing:border-box;">
+              <option value="0"${record.enable === '0' ? ' selected' : ''}>Disabled</option>
+              <option value="1"${record.enable === '1' ? ' selected' : ''}>Enabled</option>
+            </select>
+          </label>
+          <label class="dashboard-metric" for="dashboard-record-time">
+            <span class="dashboard-metric-label">Retention Days</span>
+            <input id="dashboard-record-time" name="record_time" type="number" min="1" max="30" value="${escapeHtml(record.record_time)}" style="margin-top:8px;width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;box-sizing:border-box;" />
+          </label>
+          <label class="dashboard-metric" for="dashboard-record-app-valid-time">
+            <span class="dashboard-metric-label">App Valid Days</span>
+            <input id="dashboard-record-app-valid-time" name="app_valid_time" type="number" min="1" max="30" value="${escapeHtml(record.app_valid_time)}" style="margin-top:8px;width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;box-sizing:border-box;" />
+          </label>
+          <label class="dashboard-metric" for="dashboard-record-size">
+            <span class="dashboard-metric-label">History Size</span>
+            <input id="dashboard-record-size" name="history_data_size" type="number" min="1" max="1024" value="${escapeHtml(record.history_data_size)}" style="margin-top:8px;width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;box-sizing:border-box;" />
+          </label>
+        </div>
+        <label style="display:block;margin-top:12px;">
+          <span class="dashboard-metric-label">History Data Path</span>
+          <input name="history_data_path" type="text" value="${escapeHtml(record.history_data_path)}" style="margin-top:8px;width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;box-sizing:border-box;" />
+        </label>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;">
+          <p class="dashboard-note is-muted" style="margin:0;">Only paths under <code>/tmp/dashboard/</code> are allowed.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button type="button" data-record-clear style="padding:10px 14px;border:1px solid #cbd5e1;border-radius:999px;background:#fff;cursor:pointer;"${panel.saving || panel.clearing ? ' disabled' : ''}>${panel.clearing ? 'Clearing...' : 'Clear History'}</button>
+            <button type="submit" style="padding:10px 14px;border:0;border-radius:999px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer;"${panel.saving || panel.clearing ? ' disabled' : ''}>${panel.saving ? 'Saving...' : 'Save Settings'}</button>
+          </div>
+        </div>
+      </form>
+    `,
+    `<span class="dashboard-status-badge">${badgeLabel}</span>`
+  );
+
+  attachRecordEvents();
 }
 
 function renderUsersLoading() {
@@ -516,7 +688,7 @@ export function closeUserDrawer() {
   renderUserDrawer();
 }
 
-async function bootstrapDashboard() {
+export async function bootstrapDashboard() {
   if (typeof document === 'undefined' || typeof document.getElementById !== 'function') {
     return;
   }
@@ -530,19 +702,23 @@ async function bootstrapDashboard() {
   window.dashboardState = {
     state,
     overview: null,
+    record: null,
+    recordPanel: createRecordPanelState(),
     users: null,
     userDrawer: createUserDrawerState(),
   };
 
-  for (const sectionName of ['network', 'system', 'record', 'feature', 'settings']) {
+  for (const sectionName of ['network', 'system', 'feature', 'settings']) {
     renderPlaceholder(sectionName);
   }
 
   renderOverviewLoading();
+  renderRecordLoading();
   renderUsersLoading();
   refreshIcons();
 
   state.overview.loading = true;
+  state.record.loading = true;
   state.users.loading = true;
 
   const overviewTask = (async () => {
@@ -575,7 +751,22 @@ async function bootstrapDashboard() {
     }
   })();
 
-  await Promise.allSettled([overviewTask, usersTask]);
+  const recordTask = (async () => {
+    try {
+      const record = await loadRecordSettings();
+      state.record.loaded = true;
+      window.dashboardState.record = record;
+      renderRecordContent(record);
+    } catch (error) {
+      state.record.error = error;
+      renderRecordError(error);
+    } finally {
+      state.record.loading = false;
+      refreshIcons();
+    }
+  })();
+
+  await Promise.allSettled([overviewTask, recordTask, usersTask]);
 }
 
 bootstrapDashboard();
