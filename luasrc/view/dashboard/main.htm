@@ -126,7 +126,7 @@
                               cursor-pointer
                             "/>
                         </label>
-                        <button id="oaf-upload-btn" onclick="uploadOafFeature()" class="w-full py-1.5 bg-accentOrange hover:bg-orange-600 text-white text-xs rounded transition-colors flex items-center justify-center gap-2">
+                        <button id="oaf-upload-btn" class="w-full py-1.5 bg-accentOrange hover:bg-orange-600 text-white text-xs rounded transition-colors flex items-center justify-center gap-2">
                             <i data-lucide="upload" class="w-3 h-3"></i> 立即更新
                         </button>
                         <div id="oaf-progress-container" class="hidden">
@@ -222,9 +222,16 @@
 
 <script>
     const API_BASE = '<%=url("admin/dashboard/api")%>';
-    const API_OAF = '/cgi-bin/luci/api/oaf';
+    const API_OAF = '<%=url("admin/dashboard/api/oaf")%>'; // 适配统一路由映射
 
-    // 格式化与基础工具
+    // 基础工具与安全性增强
+    const escapeHtml = (str) => {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    };
+
     const formatBytes = (bytes) => {
         if (!bytes || bytes === 0) return '0 B';
         const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -348,8 +355,8 @@
         document.getElementById('active-device-count').innerText = devices.filter(d => d.active).length;
         const html = devices.slice(0, 10).map(dev => `
             <div class="flex items-center justify-between text-xxs group">
-                <span class="text-gray-400 truncate w-32">${dev.name || dev.mac}</span>
-                <span class="text-textMuted font-mono">${dev.ip}</span>
+                <span class="text-gray-400 truncate w-32" title="${escapeHtml(dev.name || dev.mac)}">${escapeHtml(dev.name || dev.mac)}</span>
+                <span class="text-textMuted font-mono">${escapeHtml(dev.ip)}</span>
                 <span class="w-1.5 h-1.5 rounded-full ${dev.active ? 'bg-accentGreen' : 'bg-gray-600'}"></span>
             </div>
         `).join('');
@@ -363,7 +370,7 @@
         const max = data.top[0] ? data.top[0].count : 1;
         const html = data.top.slice(0, 8).map(item => `
             <div class="space-y-1">
-                <div class="flex justify-between text-xxs"><span class="truncate w-40 font-mono">${item.domain}</span><span class="text-accentBlue">${item.count}</span></div>
+                <div class="flex justify-between text-xxs"><span class="truncate w-40 font-mono" title="${escapeHtml(item.domain)}">${escapeHtml(item.domain)}</span><span class="text-accentBlue">${item.count}</span></div>
                 <div class="w-full bg-bgBase h-0.5"><div class="bg-accentBlue h-full" style="width: ${(item.count/max)*100}%"></div></div>
             </div>
         `).join('');
@@ -371,49 +378,107 @@
     }
 
     async function loadOafStatus() {
+        // 合并请求：从 status 接口同时获取版本和活跃 APP
         const data = await apiRequest('status', API_OAF);
+        const listEl = document.getElementById('oaf-apps-list');
         if (data) {
             document.getElementById('oaf-version').innerText = data.current_version || '-';
             document.getElementById('oaf-engine').innerText = data.engine || '-';
-        }
 
-        // 动态加载活跃 APP 列表 (基于最新后端修复)
-        const appsData = await apiRequest('oaf/collect_usage_overview');
-        const listEl = document.getElementById('oaf-apps-list');
-        if (appsData && appsData.apps && appsData.apps.length > 0) {
-            const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-cyan-500'];
-            const icons = ['play', 'message-square', 'download', 'shopping-cart', 'globe'];
-            listEl.innerHTML = appsData.apps.slice(0, 10).map((app, i) => `
-                <div class="flex flex-col items-center gap-1 w-10 group cursor-help" title="${app.name}">
-                    <div class="w-8 h-8 rounded ${colors[i % colors.length]} flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform">
-                        <i data-lucide="${icons[i % icons.length]}" class="w-4 h-4"></i>
+            // 动态加载活跃 APP 列表 (基于 backend 返回的 active_apps)
+            if (data.active_apps && data.active_apps.length > 0) {
+                const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-cyan-500'];
+                const icons = ['play', 'message-square', 'download', 'shopping-cart', 'globe'];
+                listEl.innerHTML = data.active_apps.slice(0, 10).map((app, i) => `
+                    <div class="flex flex-col items-center gap-1 w-10 group cursor-help" title="${escapeHtml(app.name)}">
+                        <div class="w-8 h-8 rounded ${colors[i % colors.length]} flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform">
+                            <i data-lucide="${icons[i % icons.length]}" class="w-4 h-4"></i>
+                        </div>
+                        <span class="text-xxs text-textMuted truncate w-full text-center">${escapeHtml(app.name)}</span>
                     </div>
-                    <span class="text-xxs text-textMuted truncate w-full text-center">${app.name}</span>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        } else if (listEl) {
-            listEl.innerHTML = '<span class="text-xxs text-textMuted italic">暂无活跃应用数据</span>';
+                `).join('');
+                lucide.createIcons();
+            } else if (listEl) {
+                listEl.innerHTML = '<span class="text-xxs text-textMuted italic">暂无活跃应用数据</span>';
+            }
         }
     }
 
     async function uploadOafFeature() {
         const fileInput = document.getElementById('oaf-file-input');
-        if (!fileInput.files[0]) return;
-        const formData = new FormData(); formData.append('file', fileInput.files[0]);
+        if (!fileInput || !fileInput.files[0]) return;
+        
+        const file = fileInput.files[0];
+        // 1. 前端体积预检 (与后端 32MB 限制同步)
+        if (file.size > 32 * 1024 * 1024) {
+            alert('文件过大：特征库文件不能超过 32MB');
+            return;
+        }
+        // 2. 格式预检
+        if (!file.name.match(/\.(dat|bin|zip)$/i)) {
+            alert('文件格式错误：请上传 .dat, .bin 或 .zip 格式的特征库');
+            return;
+        }
+
+        const formData = new FormData(); formData.append('file', file);
         const btn = document.getElementById('oaf-upload-btn');
         const progress = document.getElementById('oaf-progress-container');
         const bar = document.getElementById('oaf-bar');
-        btn.disabled = true; progress.classList.remove('hidden');
-        const xhr = new XMLHttpRequest(); xhr.open('POST', `${API_OAF}/upload`, true);
-        xhr.upload.onprogress = (e) => { if (e.lengthComputable) { bar.style.width = Math.round((e.loaded/e.total)*100) + '%'; } };
-        xhr.onload = () => { setTimeout(() => location.reload(), 2000); };
+        
+        btn.disabled = true; 
+        btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 处理中...';
+        lucide.createIcons();
+        progress.classList.remove('hidden');
+
+        const xhr = new XMLHttpRequest(); 
+        xhr.open('POST', `${API_OAF}/upload`, true);
+        xhr.upload.onprogress = (e) => { 
+            if (e.lengthComputable) { bar.style.width = Math.round((e.loaded/e.total)*100) + '%'; } 
+        };
+        xhr.onload = () => { 
+            let res = { success: false, message: '服务器响应异常' };
+            try { res = JSON.parse(xhr.responseText); } catch(e) {}
+            
+            if (xhr.status === 200 && res.success) {
+                btn.innerHTML = '<i data-lucide="check-circle" class="w-3 h-3"></i> 更新成功';
+                lucide.createIcons();
+                setTimeout(() => location.reload(), 1500); 
+            } else {
+                alert('上传失败: ' + (res.message || '未知错误'));
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="upload" class="w-3 h-3"></i> 立即更新';
+                progress.classList.add('hidden');
+                bar.style.width = '0%';
+                lucide.createIcons();
+            }
+        };
+        xhr.onerror = () => {
+            alert('网络请求失败，请检查连接');
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="upload" class="w-3 h-3"></i> 立即更新';
+            progress.classList.add('hidden');
+            lucide.createIcons();
+        };
         xhr.send(formData);
     }
 
-    // 初始化
-    loadSysInfo(); loadNetInfo(); loadDevices(); loadDomains(); loadOafStatus();
-    lucide.createIcons();
+    // 初始化与事件绑定
+    window.addEventListener('load', () => {
+        loadSysInfo(); 
+        loadNetInfo(); 
+        loadDevices(); 
+        loadDomains(); 
+        loadOafStatus();
+
+        // 绑定上传按钮 (CSP Safe)
+        const uploadBtn = document.getElementById('oaf-upload-btn');
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', uploadOafFeature);
+        }
+
+        lucide.createIcons();
+    });
+
     setInterval(refreshTraffic, 3000);
     setInterval(loadDevices, 15000);
 </script>

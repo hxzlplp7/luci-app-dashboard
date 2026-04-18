@@ -257,17 +257,22 @@ local function resolve_uplink_status()
         wan_ip = read_ipv4_from_device(best.l3_device or best.device or default_dev)
     end
 
-    -- 最终联网判定：如果路由和IP探测都不确定，执行一次快速 Ping
-    local online = best.up == true or wan_ip ~= "" or default_dev ~= ""
-    if not online then
-        online = proactive_ping_check()
+    -- 2. 联网探测：分层校验法
+    local is_online = false
+    local ping_val = 0
+    if best.up then
+        -- 执行极轻量的 Ping 探测 (1秒超时，仅1个包)
+        local ping_cmd = "ping -c 1 -W 1 223.5.5.5 >/dev/null 2>&1"
+        if os.execute(ping_cmd) == 0 then
+            is_online = true
+        end
     end
 
     return {
         name = best_name,
         status = best,
         wan_ip = wan_ip,
-        online = online,
+        online = is_online,
         gateway = read_default_route_gateway(),
         dns = to_array(best and best["dns-server"] or {}),
         uptime = tonumber(best and best.uptime or 0) or 0,
@@ -417,17 +422,35 @@ local function api_sysinfo()
         end
     end
 
+    -- CPU 使用率：基于 /proc/stat 的差分采样法 (解决 loadavg 不准问题)
+    local function get_cpu_jiffies()
+        local stat = fs.readfile("/proc/stat")
+        if stat then
+            local user, nice, system, idle, iowait, irq, softirq = stat:match("cpu%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)%s+(%d+)")
+            if user then
+                local total = user + nice + system + idle + iowait + irq + softirq
+                local busy = total - idle
+                return total, busy
+            end
+        end
+        return 0, 0
+    end
+
+    local t1, b1 = get_cpu_jiffies()
+    luci.sys.call("sleep 0.05") -- 短暂采样
+    local t2, b2 = get_cpu_jiffies()
+
+    local cpuUsage = 0
+    if t2 > t1 then
+        cpuUsage = math.floor(((b2 - b1) / (t2 - t1)) * 100)
+    end
+
     local ustr       = read_line("/proc/uptime") or "0"
     local uptime_raw = math.floor(tonumber(ustr:match("^(%S+)")) or 0)
 
     local lavg       = read_line("/proc/loadavg") or "0"
     local load1      = tonumber(lavg:match("^(%S+)")) or 0
-    local cpus       = 0
-    for _ in (read_all("/proc/cpuinfo") or ""):gmatch("processor%s*:") do
-        cpus = cpus + 1
-    end
-    if cpus == 0 then cpus = 1 end
-    local cpuUsage = math.min(100, math.floor(load1 * 100 / cpus))
+    -- 此处已移除冗余的 cpuUsage 覆盖逻辑，直接使用上方计算出的真实使用率
 
     local meminfo  = read_all("/proc/meminfo") or ""
     local mem      = {}
@@ -631,6 +654,20 @@ local LOCAL_API = {
     traffic = api_traffic,
     devices = api_devices,
     domains = api_domains,
+    oaf     = function()
+        local path = http.getenv("PATH_INFO") or ""
+        local sub  = path:match("/dashboard/api/oaf/([^/?#]+)")
+        local ok, oaf = pcall(require, "luci.controller.api.oaf")
+        if ok and oaf then
+            if sub == "status" and type(oaf.api_oaf_status) == "function" then
+                return oaf.api_oaf_status()
+            elseif sub == "upload" and type(oaf.api_oaf_upload) == "function" then
+                return oaf.api_oaf_upload()
+            end
+        end
+        http.prepare_content("application/json")
+        http.write('{"error":"OAF endpoint not found","success":false}')
+    end,
 }
 
 M.dashboard_dispatch = function()
