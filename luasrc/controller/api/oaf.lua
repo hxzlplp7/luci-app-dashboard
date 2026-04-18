@@ -253,15 +253,11 @@ local function collect_usage_overview(catalog)
     local now = os.time()
     local macs, visit_devices = collect_device_macs()
     local recent_apps = {}
-    local usage_by_app = {}
-    local class_totals = {}
-
     for _, device in ipairs(visit_devices) do
         local device_mac = trim((device.mac or device.mac_addr or "")):upper()
         for _, visit in ipairs(device.visit_info or {}) do
             local app_id = tonumber(visit.appid or visit.id)
             local app_info = app_id and catalog.apps[app_id] or nil
-
             if app_info then
                 local entry = recent_apps[app_id] or {
                     id = app_id,
@@ -274,7 +270,7 @@ local function collect_usage_overview(catalog)
                 }
 
                 local latest_time = tonumber(visit.latest_time or visit.lt or 0) or 0
-                if latest_time > (entry.latest_time or 0) then
+                if latest_time > entry.latest_time then
                     entry.latest_time = latest_time
                 end
 
@@ -293,6 +289,9 @@ local function collect_usage_overview(catalog)
             end
         end
     end
+
+    local usage_by_app = {}
+    local class_totals = {}
 
     for _, mac in ipairs(macs) do
         local visit_time = call_appfilter("dev_visit_time", { mac = mac }) or {}

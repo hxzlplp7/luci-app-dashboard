@@ -17,7 +17,7 @@ local M = {}
 
 function M.index()
     d.entry({ "admin", "dashboard" }, d.call("dashboard_dispatch"), _("Dashboard"), 0).leaf = true
-    d.entry({ "dashboard-api" }, d.call("dashboard_api")).leaf = true
+    d.entry({ "admin", "dashboard", "api" }, d.call("dashboard_dispatch")).leaf = true
 end
 
 -- =====================================================================
@@ -411,10 +411,10 @@ local function api_sysinfo()
     local release  = read_all("/etc/openwrt_release") or ""
     local firmware = release:match("DISTRIB_DESCRIPTION='([^']*)'")
         or release:match('DISTRIB_DESCRIPTION="([^"]*)"')
+        or release:match('DISTRIB_DESCRIPTION=([^%s]*)')
         or "OpenWrt"
 
-    local kernel   = exec_trim("uname -r")
-    if kernel == "" then kernel = "unknown" end
+    local kernel = read_line("/proc/sys/kernel/osrelease") or "Unknown"
 
     local temp = 0
     for i = 0, 9 do
@@ -482,7 +482,7 @@ local function api_sysinfo()
         uptime_raw  = uptime_raw,
         cpuUsage    = cpuUsage,
         memUsage    = memUsage,
-        hasSamba4   = hasSamba4
+        samba       = hasSamba4,
     }))
 end
 
