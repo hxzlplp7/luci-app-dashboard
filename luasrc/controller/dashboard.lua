@@ -109,14 +109,31 @@ local function first_ipv4_address(status)
     return trim(status.ipaddr or "")
 end
 
+local function to_array(value)
+    if type(value) ~= "table" then
+        return {}
+    end
+
+    if value[1] ~= nil then
+        return value
+    end
+
+    local result = {}
+    for _, item in pairs(value) do
+        result[#result + 1] = item
+    end
+    return result
+end
+
 local function has_default_route(status)
     if type(status) ~= "table" then
         return false
     end
 
-    for _, route in ipairs(status.route or status.routes or {}) do
-        local target = trim(route.target or "")
-        local mask = tonumber(route.mask)
+    for _, route in ipairs(to_array(status.route or status.routes or {})) do
+        local r = type(route) == "table" and route or {}
+        local target = trim(r.target or "")
+        local mask = tonumber(r.mask)
         if target == "0.0.0.0" or target == "::" or target == "::/0" or mask == 0 then
             return true
         end
@@ -175,16 +192,20 @@ end
 
 local function resolve_uplink_status()
     local dump = util.ubus("network.interface", "dump", {}) or {}
-    local interfaces = dump.interface or dump.interfaces or {}
+    local interfaces = to_array(dump.interface or dump.interfaces or {})
     local default_dev = read_default_route_device()
     local best_name = "wan"
     local best = util.ubus("network.interface.wan", "status", {}) or {}
+    if type(best) ~= "table" then
+        best = {}
+    end
     local best_score = -1
 
     local function score_interface(name, status)
+        local s = type(status) == "table" and status or {}
         local score = 0
-        local ipaddr = first_ipv4_address(status)
-        local dev = trim(status.l3_device or status.device or "")
+        local ipaddr = first_ipv4_address(s)
+        local dev = trim(s.l3_device or s.device or "")
 
         if name == "wan" then
             score = score + 60
@@ -192,13 +213,13 @@ local function resolve_uplink_status()
         if name == "lan" then
             score = score - 5
         end
-        if status.up == true then
+        if s.up == true then
             score = score + 40
         end
         if ipaddr ~= "" then
             score = score + 25
         end
-        if has_default_route(status) then
+        if has_default_route(s) then
             score = score + 45
         end
         if default_dev ~= "" and dev == default_dev then
@@ -211,11 +232,12 @@ local function resolve_uplink_status()
     best_score = score_interface(best_name, best)
 
     for _, item in ipairs(interfaces) do
-        local name = trim(item.interface or "")
+        local s = type(item) == "table" and item or nil
+        local name = trim(s and s.interface or "")
         if name ~= "" and name ~= "loopback" then
-            local score = score_interface(name, item)
+            local score = score_interface(name, s)
             if score > best_score then
-                best = item
+                best = s
                 best_name = name
                 best_score = score
             end
@@ -235,7 +257,7 @@ local function resolve_uplink_status()
         wan_ip = wan_ip,
         online = online,
         gateway = read_default_route_gateway(),
-        dns = best["dns-server"] or {},
+        dns = type(best["dns-server"]) == "table" and best["dns-server"] or {},
         uptime = tonumber(best.uptime) or 0,
     }
 end
@@ -426,8 +448,31 @@ end
 
 local function api_netinfo()
     local uci = require("luci.model.uci").cursor()
-    local uplink = resolve_uplink_status()
-    local lan_ip = resolve_lan_ip(uci)
+    local ok_uplink, uplink = pcall(resolve_uplink_status)
+    if not ok_uplink or type(uplink) ~= "table" then
+        local default_dev = read_default_route_device()
+        local fallback_wan = read_ipv4_from_device(default_dev)
+        if fallback_wan == "" then
+            fallback_wan = exec_trim("ip -4 addr show scope global | awk '/inet / && $NF != \"lo\" {print $2; exit}' | cut -d/ -f1")
+        end
+
+        uplink = {
+            name = default_dev ~= "" and default_dev or "wan",
+            wan_ip = fallback_wan,
+            online = default_dev ~= "" or fallback_wan ~= "",
+            dns = {},
+            uptime = 0,
+            gateway = read_default_route_gateway(),
+        }
+    end
+
+    local ok_lan, lan_ip = pcall(resolve_lan_ip, uci)
+    if not ok_lan or trim(lan_ip or "") == "" then
+        lan_ip = trim(uci:get("network", "lan", "ipaddr") or "")
+        if lan_ip == "" then
+            lan_ip = read_ipv4_from_device("br-lan")
+        end
+    end
 
     http.prepare_content("application/json")
     http.write(jsonc.stringify({

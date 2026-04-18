@@ -116,7 +116,7 @@
                                 cursor-pointer" />
                         </label>
                         <div class="text-[10px] text-textMuted">Supports the official zip package or an extracted .bin bundle.</div>
-                        <button id="oaf-upload-btn" onclick="uploadOafFeature()" class="w-full py-2 bg-accentOrange hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <button id="oaf-upload-btn" class="w-full py-2 bg-accentOrange hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs rounded-lg transition-colors flex items-center justify-center gap-2">
                             <i data-lucide="upload" class="w-3 h-3"></i>
                             立即更新
                         </button>
@@ -675,17 +675,34 @@
 
     async function loadNetInfo() {
         const data = await apiRequest('netinfo');
-        if (!data) {
+        const statusNode = document.getElementById('wan-status-text');
+        const lanNode = document.getElementById('lan-ip');
+        const wanNode = document.getElementById('wan-ip');
+        const connNode = document.getElementById('conn-count');
+
+        if (!data || (data && data.error && typeof data.wanStatus === 'undefined')) {
+            statusNode.textContent = 'Unknown';
+            statusNode.className = 'text-lg font-semibold text-amber-300';
+            lanNode.textContent = '-';
+            wanNode.textContent = '-';
+            connNode.textContent = '-';
             return;
         }
 
-        document.getElementById('wan-status-text').textContent = data.wanStatus === 'up' ? 'Online' : 'Offline';
-        document.getElementById('wan-status-text').className = data.wanStatus === 'up'
+        const wanStatus = String(data.wanStatus || '').toLowerCase();
+        const wanIp = String(data.wanIp || '').trim();
+        const lanIp = String(data.lanIp || '').trim();
+        const gateway = String(data.gateway || '').trim();
+        const connCount = Number(data.connCount);
+        const isOnline = wanStatus === 'up' || (wanStatus !== 'down' && (wanIp !== '' || gateway !== ''));
+
+        statusNode.textContent = isOnline ? 'Online' : 'Offline';
+        statusNode.className = isOnline
             ? 'text-lg font-semibold text-accentGreen'
             : 'text-lg font-semibold text-accentOrange';
-        document.getElementById('lan-ip').textContent = data.lanIp || '-';
-        document.getElementById('wan-ip').textContent = data.wanIp || '-';
-        document.getElementById('conn-count').textContent = formatNumber(data.connCount);
+        lanNode.textContent = lanIp || '-';
+        wanNode.textContent = wanIp || '-';
+        connNode.textContent = Number.isFinite(connCount) && connCount >= 0 ? formatNumber(connCount) : '-';
     }
 
     async function loadDevices() {
@@ -834,6 +851,11 @@
     }
 
     async function boot() {
+        const uploadButton = document.getElementById('oaf-upload-btn');
+        if (uploadButton) {
+            uploadButton.addEventListener('click', uploadOafFeature);
+        }
+
         lucide.createIcons();
         await Promise.all([
             loadSysInfo(),
