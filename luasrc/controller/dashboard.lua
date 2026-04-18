@@ -142,13 +142,21 @@ local function has_default_route(status)
     return false
 end
 
-local function read_ipv4_from_device(device)
-    local dev = trim(device)
-    if dev == "" then
-        return ""
-    end
+local function read_ipv4_from_device(dev)
+    if not dev or dev == "" or dev == " " then return "" end
+    local s = exec_trim("ip -4 addr show dev " .. dev .. " 2>/dev/null | awk '/inet / {print $2; exit}' | cut -d/ -f1")
+    return s
+end
 
-    return exec_trim("ip -4 addr show dev " .. shell_quote(dev) .. " | awk '/inet / {print $2; exit}' | cut -d/ -f1")
+local function proactive_ping_check()
+    -- 使用极短的 1秒超时进行主动探测，首选国内镜像，备选 8.8.8.8
+    local ok = os.execute("ping -c 1 -W 1 223.5.5.5 >/dev/null 2>&1")
+    if ok == 0 or ok == true then return true end
+    
+    ok = os.execute("ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1")
+    if ok == 0 or ok == true then return true end
+    
+    return false
 end
 
 local function read_default_route_device()
@@ -234,7 +242,7 @@ local function resolve_uplink_status()
     for _, item in ipairs(interfaces) do
         local s = type(item) == "table" and item or nil
         local name = trim(s and s.interface or "")
-        if name ~= "" and name ~= "loopback" then
+        if s and name ~= "" and name ~= "loopback" then
             local score = score_interface(name, s)
             if score > best_score then
                 best = s
@@ -249,7 +257,11 @@ local function resolve_uplink_status()
         wan_ip = read_ipv4_from_device(best.l3_device or best.device or default_dev)
     end
 
+    -- 最终联网判定：如果路由和IP探测都不确定，执行一次快速 Ping
     local online = best.up == true or wan_ip ~= "" or default_dev ~= ""
+    if not online then
+        online = proactive_ping_check()
+    end
 
     return {
         name = best_name,
@@ -257,8 +269,8 @@ local function resolve_uplink_status()
         wan_ip = wan_ip,
         online = online,
         gateway = read_default_route_gateway(),
-        dns = type(best["dns-server"]) == "table" and best["dns-server"] or {},
-        uptime = tonumber(best.uptime) or 0,
+        dns = to_array(best and best["dns-server"] or {}),
+        uptime = tonumber(best and best.uptime or 0) or 0,
     }
 end
 

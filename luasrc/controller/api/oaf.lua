@@ -211,32 +211,33 @@ end
 local function collect_device_macs()
     local macs = {}
     local seen = {}
+    
+    -- 方法1: 尝试 visit_list (标准方法)
     local visit_data = call_appfilter("visit_list", {}) or {}
-
-    for _, device in ipairs(visit_data.dev_list or {}) do
-        local mac = trim(device.mac)
-        if mac ~= "" and not seen[mac] then
-            seen[mac] = true
-            macs[#macs + 1] = mac
+    local devs = visit_data.dev_list or visit_data.client_list or {}
+    
+    for _, device in ipairs(devs) do
+        local m = (device.mac or ""):upper()
+        if m ~= "" and not seen[m] then
+            seen[m] = true
+            macs[#macs+1] = m
         end
     end
 
+    -- 方法2: 补偿措施，如果 visit_list 为空，尝试直接获取设备列表
     if #macs == 0 then
-        local dev_data = call_appfilter("dev_list", {}) or {}
-        local source = dev_data.dev_list or dev_data.list or dev_data
-
-        if type(source) == "table" then
-            for _, device in ipairs(source) do
-                local mac = trim(device.mac)
-                if mac ~= "" and not seen[mac] then
-                    seen[mac] = true
-                    macs[#macs + 1] = mac
-                end
+        local dev_data = call_appfilter("dev_list", {}) or call_appfilter("get_client_list", {}) or {}
+        local list = dev_data.dev_list or dev_data.client_list or {}
+        for _, dev in ipairs(list) do
+            local m = (dev.mac or ""):upper()
+            if m ~= "" and not seen[m] then
+                seen[m] = true
+                macs[#macs+1] = m
             end
         end
     end
-
-    return macs, visit_data.dev_list or {}
+    
+    return macs, devs
 end
 
 local function icon_url_for(app_id)
@@ -270,12 +271,14 @@ local function collect_usage_overview(catalog)
                 }
 
                 local latest_time = tonumber(visit.latest_time or visit.lt or 0) or 0
-                if latest_time > entry.latest_time then
+                if latest_time > (entry.latest_time or 0) then
                     entry.latest_time = latest_time
                 end
 
-                entry.devices = entry.devices + 1
-                recent_apps[app_id] = entry
+                entry.devices = (entry.devices or 0) + 1
+                if app_id then
+                    recent_apps[app_id] = entry
+                end
             end
         end
     end
@@ -606,7 +609,7 @@ M.action_upload = function()
     ensure_dir(payload_dir)
 
     local archive_path = upload_path
-    local lower_name = upload_name:lower()
+    local lower_name = tostring(upload_name or ""):lower()
 
     if lower_name:match("%.zip$") then
         if not unpack_zip(upload_path, stage_dir) then
