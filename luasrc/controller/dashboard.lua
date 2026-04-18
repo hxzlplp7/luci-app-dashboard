@@ -7,13 +7,15 @@
 local http       = require "luci.http"
 local util       = require "luci.util"
 local jsonc      = require "luci.jsonc"
-local dispatcher = require "luci.dispatcher"
+local d          = require "luci.dispatcher"
+local _          = require "luci.i18n".translate
 
-module("luci.controller.dashboard", package.seeall)
+-- 定义模块表 (兼容 Lua 5.1/5.4)
+local M = {}
 
-function index()
-    entry({ "admin", "dashboard" }, call("dashboard_dispatch"), _("Dashboard"), 0).leaf = true
-    entry({ "dashboard-api" }, call("dashboard_api")).leaf = true
+function M.index()
+    d.entry({ "admin", "dashboard" }, d.call("dashboard_dispatch"), _("Dashboard"), 0).leaf = true
+    d.entry({ "dashboard-api" }, d.call("dashboard_api")).leaf = true
 end
 
 -- =====================================================================
@@ -69,12 +71,9 @@ end
 
 -- =====================================================================
 -- Local API: sysinfo
--- Returns: { model, firmware, kernel, temp, systime_raw,
---            uptime_raw, cpuUsage, memUsage }
 -- =====================================================================
 
 local function api_sysinfo()
-    -- Get Model: Combined methods including device-tree for robustness
     local model = ""
     local boardinfo = util.ubus("system", "board", {})
     if type(boardinfo) == "table" and boardinfo.model then model = boardinfo.model end
@@ -82,17 +81,14 @@ local function api_sysinfo()
     if model == "" then model = exec_trim("cat /proc/device-tree/model 2>/dev/null | tr -d '\\0'") end
     if model == "" then model = "Generic Device" end
 
-    -- Firmware version
     local release  = read_all("/etc/openwrt_release") or ""
     local firmware = release:match("DISTRIB_DESCRIPTION='([^']*)'")
         or release:match('DISTRIB_DESCRIPTION="([^"]*)"')
         or "OpenWrt"
 
-    -- Kernel version
     local kernel   = exec_trim("uname -r")
     if kernel == "" then kernel = "unknown" end
 
-    -- CPU temperature (first thermal zone > 0)
     local temp = 0
     for i = 0, 9 do
         local raw = tonumber(read_line("/sys/class/thermal/thermal_zone" .. i .. "/temp") or "")
@@ -107,11 +103,9 @@ local function api_sysinfo()
         end
     end
 
-    -- Uptime in seconds
     local ustr       = read_line("/proc/uptime") or "0"
     local uptime_raw = math.floor(tonumber(ustr:match("^(%S+)")) or 0)
 
-    -- CPU usage from 1-minute load average
     local lavg       = read_line("/proc/loadavg") or "0"
     local load1      = tonumber(lavg:match("^(%S+)")) or 0
     local cpus       = 0
@@ -121,7 +115,6 @@ local function api_sysinfo()
     if cpus == 0 then cpus = 1 end
     local cpuUsage = math.min(100, math.floor(load1 * 100 / cpus))
 
-    -- Memory usage
     local meminfo  = read_all("/proc/meminfo") or ""
     local mem      = {}
     for k, v in meminfo:gmatch("(%S+):%s+(%d+)") do
@@ -131,7 +124,6 @@ local function api_sysinfo()
     local ma       = mem.MemAvailable or mem.MemFree or 0
     local memUsage = math.floor((mt - ma) * 100 / mt)
 
-    -- Check for samba4 presence
     local hasSamba4 = path_exists("/usr/lib/lua/luci/controller/samba4.lua") or path_exists("/etc/config/samba4")
 
     http.prepare_content("application/json")
@@ -150,14 +142,12 @@ end
 
 -- =====================================================================
 -- Local API: netinfo
--- Returns: { wanStatus, wanIp, lanIp, dns[], network_uptime_raw }
 -- =====================================================================
 
 local function api_netinfo()
     local uci = require("luci.model.uci").cursor()
     local wan = util.ubus("network.interface.wan", "status") or {}
 
-    -- Fallback: find any non-LAN interface with an IPv4 address
     if not wan.up and not (wan["ipv4-address"] and #wan["ipv4-address"] > 0) then
         local dump = util.ubus("network.interface", "dump", {}) or {}
         for _, e in ipairs(dump.interface or dump.interfaces or {}) do
@@ -188,14 +178,12 @@ end
 
 -- =====================================================================
 -- Local API: traffic
--- Returns: { tx_bytes, rx_bytes }  — raw counters from /sys/class/net
 -- =====================================================================
 
 local function api_traffic()
     local wan   = util.ubus("network.interface.wan", "status") or {}
     local l3dev = wan.l3_device or wan.device or ""
 
-    -- Fallback: scan interface dump for the first non-LAN device
     if l3dev == "" then
         local dump = util.ubus("network.interface", "dump", {}) or {}
         for _, e in ipairs(dump.interface or dump.interfaces or {}) do
@@ -220,7 +208,6 @@ end
 
 -- =====================================================================
 -- Local API: devices
--- Returns: [{ mac, ip, name, type, active }]
 -- =====================================================================
 
 local function api_devices()
@@ -237,7 +224,6 @@ local function api_devices()
         return "laptop"
     end
 
-    -- Primary source: DHCP lease file (has hostnames)
     for line in (read_all("/tmp/dhcp.leases") or ""):gmatch("[^\n]+") do
         local _, mac, ip, name = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
         if mac then
@@ -256,7 +242,6 @@ local function api_devices()
         end
     end
 
-    -- Supplementary source: ARP table (no hostname, but catches non-DHCP devices)
     for line in (read_all("/proc/net/arp") or ""):gmatch("[^\n]+") do
         local ip, _, flags, mac = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
         if mac and mac ~= "00:00:00:00:00:00" and ip ~= "IP" and flags == "0x2" then
@@ -280,8 +265,6 @@ end
 
 -- =====================================================================
 -- Local API: domains
--- Returns: { source, list[{ domain, count }] }
--- source = "conntrack" | "nlbwmon" | "none"
 -- =====================================================================
 
 local function api_domains()
@@ -290,7 +273,6 @@ local function api_domains()
     local lines = {}
     local counts = {}
 
-    -- Try OpenClash logs first
     if path_exists("/tmp/openclash.log") then
         source = "openclash"
         local p = io.popen('grep -iE "dns|connect|host|sni" /tmp/openclash.log 2>/dev/null | tail -n 1000')
@@ -310,7 +292,6 @@ local function api_domains()
             p:close()
         end
     else
-        -- Fallback to dnsmasq logs
         source = "dnsmasq"
         local p = io.popen("logread | grep -i dnsmasq | tail -n 1000")
         if p then
@@ -324,25 +305,22 @@ local function api_domains()
         end
     end
 
-    -- Count frequencies
     for i = 1, #lines do
-        local d = lines[i]
-        counts[d] = (counts[d] or 0) + 1
+        local d_val = lines[i]
+        counts[d_val] = (counts[d_val] or 0) + 1
     end
 
-    -- Top 10 rankings
     local sortable = {}
-    for d, c in pairs(counts) do table.insert(sortable, {domain = d, count = c}) end
+    for d_val, c in pairs(counts) do table.insert(sortable, {domain = d_val, count = c}) end
     table.sort(sortable, function(a, b) return a.count > b.count end)
     for i = 1, math.min(10, #sortable) do table.insert(result.top, sortable[i]) end
 
-    -- Recent 10 unique domains
     local seen_recent = {}
     for i = #lines, 1, -1 do
-        local d = lines[i]
-        if not seen_recent[d] then
-            seen_recent[d] = true
-            table.insert(result.recent, {domain = d, count = counts[d]})
+        local d_val = lines[i]
+        if not seen_recent[d_val] then
+            seen_recent[d_val] = true
+            table.insert(result.recent, {domain = d_val, count = counts[d_val]})
             if #result.recent >= 10 then break end
         end
     end
@@ -355,8 +333,6 @@ end
 
 -- =====================================================================
 -- Page + Local-API Dispatcher
--- /admin/dashboard/api/<endpoint>  → JSON API
--- everything else                  → render dashboard/home template
 -- =====================================================================
 
 local LOCAL_API = {
@@ -367,12 +343,11 @@ local LOCAL_API = {
     domains = api_domains,
 }
 
-function dashboard_dispatch()
+M.dashboard_dispatch = function()
     local uri      = http.getenv("REQUEST_URI") or ""
     local endpoint = uri:match("/dashboard/api/([^/?#]+)")
 
     if endpoint then
-        -- ── API branch ────────────────────────────────────────────────
         local sid, _ = check_session()
         if not sid then
             http.prepare_content("application/json")
@@ -392,19 +367,17 @@ function dashboard_dispatch()
             http.write('{"error":"Not found","code":404}')
         end
     else
-        -- ── Page branch ───────────────────────────────────────────────
         require("luci.template").render("dashboard/main", {
-            prefix = dispatcher.build_url("admin", "dashboard")
+            prefix = d.build_url("admin", "dashboard")
         })
     end
 end
 
 -- =====================================================================
--- Vue-bundle Route Table
+-- Vue-bundle Code Table
 -- =====================================================================
 
 local ROUTES = {
-    -- Network
     ["GET:/u/network/status/"]              = { "api_network", "status" },
     ["GET:/u/network/statistics/"]          = { "api_network", "statistics" },
     ["GET:/network/device/list/"]           = { "api_network", "device_list" },
@@ -412,11 +385,9 @@ local ROUTES = {
     ["GET:/network/interface/config/"]      = { "api_network", "interface_config_get" },
     ["POST:/network/interface/config/"]     = { "api_network", "interface_config_post" },
     ["POST:/network/checkPublicNet/"]       = { "api_network", "check_public_net" },
-    -- System
     ["GET:/system/status/"]                 = { "api_system", "status" },
     ["GET:/u/system/version/"]              = { "api_system", "version" },
     ["POST:/system/reboot/"]                = { "api_system", "reboot" },
-    -- Guide
     ["GET:/guide/dns-config/"]              = { "api_guide", "dns_config_get" },
     ["POST:/guide/dns-config/"]             = { "api_guide", "dns_config_post" },
     ["GET:/u/guide/ddns/"]                  = { "api_guide", "ddns_get" },
@@ -426,17 +397,12 @@ local ROUTES = {
     ["POST:/guide/docker/transfer/"]        = { "api_guide", "docker_transfer" },
     ["POST:/guide/docker/switch/"]          = { "api_guide", "docker_switch" },
     ["GET:/guide/download-service/status/"] = { "api_guide", "download_service_status" },
-    -- NAS
     ["GET:/nas/disk/status/"]               = { "api_nas", "disk_status" },
     ["GET:/u/nas/service/status/"]          = { "api_nas", "service_status" },
     ["POST:/nas/linkease/enable/"]          = { "api_nas", "linkease_enable" },
 }
 
--- =====================================================================
--- Vue-bundle API Dispatcher  (/cgi-bin/luci/dashboard-api/...)
--- =====================================================================
-
-function dashboard_api()
+M.dashboard_api = function()
     local sid, _ = check_session()
     if not sid then
         http.prepare_content("application/json")
@@ -471,8 +437,9 @@ function dashboard_api()
             }))
         end
     else
-        -- Unknown endpoint: return graceful empty success
         http.prepare_content("application/json")
         http.write('{"success":200,"result":{}}')
     end
 end
+
+return M
