@@ -223,6 +223,7 @@
         previousRx: 0,
         previousAt: 0
     };
+    let latestOafStatus = null;
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -274,6 +275,132 @@
             return `${Math.floor(total / 3600)} h ago`;
         }
         return `${Math.floor(total / 86400)} d ago`;
+    }
+
+    function compareVersions(left, right) {
+        const lhs = String(left || '').split(/[^0-9]+/).filter(Boolean).map((item) => Number(item) || 0);
+        const rhs = String(right || '').split(/[^0-9]+/).filter(Boolean).map((item) => Number(item) || 0);
+        const max = Math.max(lhs.length, rhs.length);
+        for (let index = 0; index < max; index += 1) {
+            const a = lhs[index] || 0;
+            const b = rhs[index] || 0;
+            if (a < b) return -1;
+            if (a > b) return 1;
+        }
+        return 0;
+    }
+
+    function parseZipEntries(buffer) {
+        const view = new DataView(buffer);
+        const minOffset = Math.max(0, view.byteLength - 65557);
+        let eocdOffset = -1;
+
+        for (let offset = view.byteLength - 22; offset >= minOffset; offset -= 1) {
+            if (view.getUint32(offset, true) === 0x06054b50) {
+                eocdOffset = offset;
+                break;
+            }
+        }
+
+        if (eocdOffset < 0) {
+            throw new Error('zip package format is invalid.');
+        }
+
+        const totalEntries = view.getUint16(eocdOffset + 10, true);
+        const centralDirectoryOffset = view.getUint32(eocdOffset + 16, true);
+        const decoder = new TextDecoder('utf-8');
+        const entries = [];
+        let offset = centralDirectoryOffset;
+
+        for (let index = 0; index < totalEntries; index += 1) {
+            if (view.getUint32(offset, true) !== 0x02014b50) {
+                throw new Error('zip package format is invalid.');
+            }
+
+            const compressionMethod = view.getUint16(offset + 10, true);
+            const compressedSize = view.getUint32(offset + 20, true);
+            const uncompressedSize = view.getUint32(offset + 24, true);
+            const nameLength = view.getUint16(offset + 28, true);
+            const extraLength = view.getUint16(offset + 30, true);
+            const commentLength = view.getUint16(offset + 32, true);
+            const localHeaderOffset = view.getUint32(offset + 42, true);
+            const nameBytes = new Uint8Array(buffer, offset + 46, nameLength);
+            const name = decoder.decode(nameBytes);
+
+            entries.push({
+                name,
+                compressionMethod,
+                compressedSize,
+                uncompressedSize,
+                localHeaderOffset
+            });
+
+            offset += 46 + nameLength + extraLength + commentLength;
+        }
+
+        return entries;
+    }
+
+    function pickZipBinEntry(entries) {
+        const bins = entries.filter((item) => /\.bin$/i.test(item.name || ''));
+        if (bins.length === 0) {
+            throw new Error('zip package does not contain a .bin bundle.');
+        }
+
+        const engineVersion = String((latestOafStatus && latestOafStatus.engine_version) || '').match(/\d+\.\d+\.\d+/)?.[0] || '';
+        const preferCompat = engineVersion && compareVersions(engineVersion, '6.1.4') < 0;
+        const compat = bins.filter((item) => /compat\.bin$/i.test(item.name));
+        const normal = bins.filter((item) => !/compat\.bin$/i.test(item.name));
+
+        if (preferCompat) {
+            return compat[0] || normal[0];
+        }
+
+        return normal[0] || compat[0];
+    }
+
+    async function inflateZipEntry(buffer, entry) {
+        const view = new DataView(buffer);
+        const headerOffset = entry.localHeaderOffset;
+        if (view.getUint32(headerOffset, true) !== 0x04034b50) {
+            throw new Error('zip local header is invalid.');
+        }
+
+        const nameLength = view.getUint16(headerOffset + 26, true);
+        const extraLength = view.getUint16(headerOffset + 28, true);
+        const dataStart = headerOffset + 30 + nameLength + extraLength;
+        const dataEnd = dataStart + entry.compressedSize;
+        const compressedData = buffer.slice(dataStart, dataEnd);
+
+        if (entry.compressionMethod === 0) {
+            return compressedData;
+        }
+
+        if (entry.compressionMethod === 8) {
+            if (typeof DecompressionStream === 'undefined') {
+                throw new Error('browser does not support local zip extraction.');
+            }
+
+            const stream = new Blob([compressedData])
+                .stream()
+                .pipeThrough(new DecompressionStream('deflate-raw'));
+            return await new Response(stream).arrayBuffer();
+        }
+
+        throw new Error(`zip compression method ${entry.compressionMethod} is not supported.`);
+    }
+
+    async function extractZipBundle(file) {
+        const buffer = await file.arrayBuffer();
+        const entries = parseZipEntries(buffer);
+        const entry = pickZipBinEntry(entries);
+        const payload = await inflateZipEntry(buffer, entry);
+        const filename = String(entry.name || 'feature.bin').split('/').pop() || 'feature.bin';
+
+        return new File([payload], filename, {
+            type: 'application/octet-stream',
+            lastModified: Date.now()
+        });
     }
 
     function domainSourceLabel(source) {
@@ -619,6 +746,7 @@
     async function loadOafStatus() {
         const data = await apiRequest('status', API_OAF);
         if (!data) {
+            latestOafStatus = null;
             document.getElementById('oaf-version').textContent = '-';
             document.getElementById('oaf-engine').textContent = 'Unavailable';
             renderActiveApps([]);
@@ -626,6 +754,7 @@
             return;
         }
 
+        latestOafStatus = data;
         document.getElementById('oaf-version').textContent = data.current_version || '-';
         document.getElementById('oaf-engine').textContent = data.engine || '-';
         renderActiveApps(data.active_apps || []);
@@ -634,8 +763,8 @@
 
     async function uploadOafFeature() {
         const fileInput = document.getElementById('oaf-file-input');
-        const file = fileInput.files && fileInput.files[0];
-        if (!file) {
+        const selectedFile = fileInput.files && fileInput.files[0];
+        if (!selectedFile) {
             setUploadStatus('Please select a file first.', 'error');
             return;
         }
@@ -643,13 +772,27 @@
         const button = document.getElementById('oaf-upload-btn');
         const progress = document.getElementById('oaf-progress-container');
         const bar = document.getElementById('oaf-bar');
-        const formData = new FormData();
-        formData.append('file', file);
-
         button.disabled = true;
         progress.classList.remove('hidden');
         bar.style.width = '0%';
-        setUploadStatus(`Uploading ${file.name} ...`);
+
+        let uploadFile = selectedFile;
+        try {
+            if (/\.zip$/i.test(selectedFile.name || '')) {
+                setUploadStatus(`Parsing ${selectedFile.name} locally ...`);
+                uploadFile = await extractZipBundle(selectedFile);
+            }
+        } catch (error) {
+            progress.classList.add('hidden');
+            bar.style.width = '0%';
+            button.disabled = false;
+            setUploadStatus(error && error.message ? error.message : 'Failed to unpack zip locally.', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', uploadFile);
+        setUploadStatus(`Uploading ${uploadFile.name} ...`);
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `${API_OAF}/upload`, true);
@@ -673,11 +816,13 @@
                     bar.style.width = '0%';
                 }, 1200);
             } else {
+                progress.classList.add('hidden');
                 setUploadStatus((payload && payload.message) || 'Upload failed.', 'error');
             }
         };
 
         xhr.onerror = () => {
+            progress.classList.add('hidden');
             setUploadStatus('Upload failed.', 'error');
         };
 

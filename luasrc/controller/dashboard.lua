@@ -65,6 +65,10 @@ local function exec_trim(cmd)
     return out:gsub("%s+$", "")
 end
 
+local function shell_quote(value)
+    return "'" .. tostring(value or ""):gsub("'", [['"'"']]) .. "'"
+end
+
 local function path_exists(p)
     local f = io.open(p, "r")
     if f then
@@ -90,6 +94,150 @@ local function read_conntrack_count()
     end
 
     return 0
+end
+
+local function first_ipv4_address(status)
+    if type(status) ~= "table" then
+        return ""
+    end
+
+    local list = status["ipv4-address"] or {}
+    if type(list) == "table" and type(list[1]) == "table" then
+        return trim(list[1].address or "")
+    end
+
+    return trim(status.ipaddr or "")
+end
+
+local function has_default_route(status)
+    if type(status) ~= "table" then
+        return false
+    end
+
+    for _, route in ipairs(status.route or status.routes or {}) do
+        local target = trim(route.target or "")
+        local mask = tonumber(route.mask)
+        if target == "0.0.0.0" or target == "::" or target == "::/0" or mask == 0 then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function read_ipv4_from_device(device)
+    local dev = trim(device)
+    if dev == "" then
+        return ""
+    end
+
+    return exec_trim("ip -4 addr show dev " .. shell_quote(dev) .. " | awk '/inet / {print $2; exit}' | cut -d/ -f1")
+end
+
+local function read_default_route_device()
+    local dev = exec_trim("ip route show default | awk 'NR==1 {print $5}'")
+    if dev ~= "" then
+        return dev
+    end
+
+    return exec_trim("ip -6 route show default | awk 'NR==1 {print $5}'")
+end
+
+local function read_default_route_gateway()
+    local gw = exec_trim("ip route show default | awk 'NR==1 {print $3}'")
+    if gw ~= "" then
+        return gw
+    end
+
+    return exec_trim("ip -6 route show default | awk 'NR==1 {print $3}'")
+end
+
+local function resolve_lan_ip(uci)
+    local lan_status = util.ubus("network.interface.lan", "status", {}) or {}
+    local lan_ip = first_ipv4_address(lan_status)
+    if lan_ip ~= "" then
+        return lan_ip
+    end
+
+    lan_ip = trim(uci:get("network", "lan", "ipaddr") or "")
+    if lan_ip ~= "" then
+        return lan_ip
+    end
+
+    local lan_device = trim(uci:get("network", "lan", "device") or uci:get("network", "lan", "ifname") or "br-lan")
+    lan_ip = read_ipv4_from_device(lan_device)
+    if lan_ip ~= "" then
+        return lan_ip
+    end
+
+    return read_ipv4_from_device("br-lan")
+end
+
+local function resolve_uplink_status()
+    local dump = util.ubus("network.interface", "dump", {}) or {}
+    local interfaces = dump.interface or dump.interfaces or {}
+    local default_dev = read_default_route_device()
+    local best_name = "wan"
+    local best = util.ubus("network.interface.wan", "status", {}) or {}
+    local best_score = -1
+
+    local function score_interface(name, status)
+        local score = 0
+        local ipaddr = first_ipv4_address(status)
+        local dev = trim(status.l3_device or status.device or "")
+
+        if name == "wan" then
+            score = score + 60
+        end
+        if name == "lan" then
+            score = score - 5
+        end
+        if status.up == true then
+            score = score + 40
+        end
+        if ipaddr ~= "" then
+            score = score + 25
+        end
+        if has_default_route(status) then
+            score = score + 45
+        end
+        if default_dev ~= "" and dev == default_dev then
+            score = score + 80
+        end
+
+        return score
+    end
+
+    best_score = score_interface(best_name, best)
+
+    for _, item in ipairs(interfaces) do
+        local name = trim(item.interface or "")
+        if name ~= "" and name ~= "loopback" then
+            local score = score_interface(name, item)
+            if score > best_score then
+                best = item
+                best_name = name
+                best_score = score
+            end
+        end
+    end
+
+    local wan_ip = first_ipv4_address(best)
+    if wan_ip == "" then
+        wan_ip = read_ipv4_from_device(best.l3_device or best.device or default_dev)
+    end
+
+    local online = best.up == true or wan_ip ~= "" or default_dev ~= ""
+
+    return {
+        name = best_name,
+        status = best,
+        wan_ip = wan_ip,
+        online = online,
+        gateway = read_default_route_gateway(),
+        dns = best["dns-server"] or {},
+        uptime = tonumber(best.uptime) or 0,
+    }
 end
 
 local function normalize_domain(domain)
@@ -278,34 +426,19 @@ end
 
 local function api_netinfo()
     local uci = require("luci.model.uci").cursor()
-    local wan = util.ubus("network.interface.wan", "status") or {}
-
-    if not wan.up and not (wan["ipv4-address"] and #wan["ipv4-address"] > 0) then
-        local dump = util.ubus("network.interface", "dump", {}) or {}
-        for _, e in ipairs(dump.interface or dump.interfaces or {}) do
-            local n = e.interface or ""
-            if n ~= "loopback" and n ~= "lan" and not n:match("^lan%d") then
-                if e["ipv4-address"] and #e["ipv4-address"] > 0 then
-                    wan = e
-                    break
-                end
-            end
-        end
-    end
-
-    local wan_ip = ""
-    if wan["ipv4-address"] and wan["ipv4-address"][1] then
-        wan_ip = wan["ipv4-address"][1].address or ""
-    end
+    local uplink = resolve_uplink_status()
+    local lan_ip = resolve_lan_ip(uci)
 
     http.prepare_content("application/json")
     http.write(jsonc.stringify({
-        wanStatus          = (wan.up == true or wan_ip ~= "") and "up" or "down",
-        wanIp              = wan_ip,
-        lanIp              = uci:get("network", "lan", "ipaddr") or "192.168.1.1",
-        dns                = wan["dns-server"] or {},
-        network_uptime_raw = wan.uptime or 0,
+        wanStatus          = uplink.online and "up" or "down",
+        wanIp              = uplink.wan_ip,
+        lanIp              = lan_ip,
+        dns                = uplink.dns,
+        network_uptime_raw = uplink.uptime,
         connCount          = read_conntrack_count(),
+        interfaceName      = uplink.name,
+        gateway            = uplink.gateway,
     }))
 end
 
