@@ -1,10 +1,11 @@
 (function(window, document) {
     'use strict';
 
-    // 状态配置 (从 data-* 属性读取，避免内联脚本违反 CSP)
-    const configEl = document.getElementById('dashboard-config');
-    const API_BASE = configEl ? configEl.dataset.apiBase : '';
-    const API_OAF = configEl ? configEl.dataset.apiOaf : '';
+    // 状态配置：从当前页面 URL 自动推导 API 基址
+    // 当前页面路径形如 /cgi-bin/luci/admin/dashboard，直接追加 /api 即可
+    const pathMatch = window.location.pathname.match(/(.+\/admin\/dashboard)/);
+    const API_BASE = pathMatch ? pathMatch[1] + '/api' : '';
+    const API_OAF = API_BASE ? API_BASE + '/oaf' : '';
     const LUCI_TOKEN = (window.L && L.env && L.env.token) ? L.env.token : '';
 
     // 基础工具与安全性增强

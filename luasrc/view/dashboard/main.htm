@@ -192,10 +192,5 @@
     </div>
 </div>
 
-<!-- 运行时参数桥接：通过 data-* 属性传递，避免内联脚本违反 CSP -->
-<div id="dashboard-config" class="hidden"
-    data-api-base="<%=url("admin/dashboard/api")%>"
-    data-api-oaf="<%=url("admin/dashboard/api/oaf")%>">
-</div>
 <script src="/luci-static/dashboard/dashboard.js"></script>
 <%+footer%>
