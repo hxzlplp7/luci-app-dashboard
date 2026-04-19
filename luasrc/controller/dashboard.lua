@@ -262,13 +262,9 @@ local function resolve_uplink_status()
 
     -- 2. 联网探测：分层校验法
     local is_online = false
-    local ping_val = 0
     if best.up then
-        -- 执行极轻量的 Ping 探测 (1秒超时，仅1个包)
-        local ping_cmd = "ping -c 1 -W 1 223.5.5.5 >/dev/null 2>&1"
-        if os.execute(ping_cmd) == 0 then
-            is_online = true
-        end
+        -- 复用 proactive_ping_check()，兼容 Lua 5.1 (返回0) 和 Lua 5.3+ (返回true)
+        is_online = proactive_ping_check()
     end
 
     return {

@@ -151,20 +151,26 @@
 
     async function loadNetInfo() {
         const data = await apiRequest('netinfo');
-        if (data) {
-            const statusText = document.getElementById('wan-status-text');
-            if (data.wanStatus === 'up') {
-                statusText.innerText = '已联网';
-                statusText.className = 'text-accentGreen font-semibold text-sm';
-            } else {
-                statusText.innerText = '未连接';
-                statusText.className = 'text-red-500 font-semibold text-sm';
+        const statusText = document.getElementById('wan-status-text');
+        if (!data) {
+            // API 请求失败降级处理
+            if (statusText) {
+                statusText.innerText = '检测失败';
+                statusText.className = 'text-yellow-500 font-semibold text-sm';
             }
-            document.getElementById('lan-ip').innerText = data.lanIp || '-';
-            document.getElementById('wan-ip').innerText = data.wanIp || '-';
-            if (document.getElementById('conn-count')) {
-                document.getElementById('conn-count').innerText = data.connCount || '-';
-            }
+            return;
+        }
+        if (data.wanStatus === 'up') {
+            statusText.innerText = '已联网';
+            statusText.className = 'text-accentGreen font-semibold text-sm';
+        } else {
+            statusText.innerText = '未连接';
+            statusText.className = 'text-red-500 font-semibold text-sm';
+        }
+        document.getElementById('lan-ip').innerText = data.lanIp || '-';
+        document.getElementById('wan-ip').innerText = data.wanIp || '-';
+        if (document.getElementById('conn-count')) {
+            document.getElementById('conn-count').innerText = data.connCount || '-';
         }
     }
 
@@ -199,31 +205,49 @@
     async function loadOafStatus() {
         const data = await apiRequest('status', API_OAF);
         const listEl = document.getElementById('oaf-apps-list');
-        if (data) {
-            document.getElementById('oaf-version').innerText = data.current_version || '-';
-            document.getElementById('oaf-engine').innerText = data.engine || '-';
+        const versionEl = document.getElementById('oaf-version');
+        const engineEl = document.getElementById('oaf-engine');
 
-            if (data.class_stats && data.class_stats.length > 0 && appUsageChart) {
-                appUsageChart.data.labels = data.class_stats.map(item => item.name || '-');
-                appUsageChart.data.datasets[0].data = data.class_stats.map(item => item.time || 0);
-                appUsageChart.update();
-            }
+        // 情况1: API 请求失败 (OAF 模块未安装 / 后端异常)
+        if (!data || data.error) {
+            if (versionEl) versionEl.innerText = '未安装';
+            if (engineEl) engineEl.innerText = '不可用';
+            if (listEl) listEl.innerHTML = '<span class="text-xxs text-textMuted italic">OAF 未安装或不可用</span>';
+            return;
+        }
 
-            if (data.active_apps && data.active_apps.length > 0) {
-                const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-cyan-500'];
-                const icons = ['play', 'message-square', 'download', 'shopping-cart', 'globe'];
-                listEl.innerHTML = data.active_apps.slice(0, 10).map((app, i) => `
-                    <div class="flex flex-col items-center gap-1 w-10 group cursor-help" title="${escapeHtml(app.name)}">
-                        <div class="w-8 h-8 rounded ${colors[i % colors.length]} flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform">
-                            <i data-lucide="${icons[i % icons.length]}" class="w-4 h-4"></i>
-                        </div>
-                        <span class="text-xxs text-textMuted truncate w-full text-center">${escapeHtml(app.name)}</span>
+        // 情况2: API 正常返回，但 OAF 服务不可用
+        if (data.available === false) {
+            if (versionEl) versionEl.innerText = '未检测到';
+            if (engineEl) engineEl.innerText = '未运行';
+            if (listEl) listEl.innerHTML = '<span class="text-xxs text-textMuted italic">OAF 特征库未加载</span>';
+            return;
+        }
+
+        // 正常状态
+        if (versionEl) versionEl.innerText = data.current_version || '-';
+        if (engineEl) engineEl.innerText = data.engine || '-';
+
+        if (data.class_stats && data.class_stats.length > 0 && appUsageChart) {
+            appUsageChart.data.labels = data.class_stats.map(item => item.name || '-');
+            appUsageChart.data.datasets[0].data = data.class_stats.map(item => item.time || 0);
+            appUsageChart.update();
+        }
+
+        if (data.active_apps && data.active_apps.length > 0) {
+            const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-cyan-500'];
+            const icons = ['play', 'message-square', 'download', 'shopping-cart', 'globe'];
+            listEl.innerHTML = data.active_apps.slice(0, 10).map((app, i) => `
+                <div class="flex flex-col items-center gap-1 w-10 group cursor-help" title="${escapeHtml(app.name)}">
+                    <div class="w-8 h-8 rounded ${colors[i % colors.length]} flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform">
+                        <i data-lucide="${icons[i % icons.length]}" class="w-4 h-4"></i>
                     </div>
-                `).join('');
-                if (window.lucide) lucide.createIcons();
-            } else if (listEl) {
-                listEl.innerHTML = '<span class="text-xxs text-textMuted italic">暂无活跃应用数据</span>';
-            }
+                    <span class="text-xxs text-textMuted truncate w-full text-center">${escapeHtml(app.name)}</span>
+                </div>
+            `).join('');
+            if (window.lucide) lucide.createIcons();
+        } else if (listEl) {
+            listEl.innerHTML = '<span class="text-xxs text-textMuted italic">暂无活跃应用数据</span>';
         }
     }
 
