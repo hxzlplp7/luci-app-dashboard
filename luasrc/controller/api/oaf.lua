@@ -11,10 +11,13 @@ local FEATURE_ROOT = "/etc/appfilter"
 local FEATURE_FILE = FEATURE_ROOT .. "/feature.cfg"
 local FEATURE_LINK = "/tmp/feature.cfg"
 local VERSION_FILE = FEATURE_ROOT .. "/version.txt"
+local FEATURE_DEFAULT_DIR = "/usr/share/luci-app-dashboard/oaf-default"
+local FEATURE_DEFAULT_FILE = FEATURE_DEFAULT_DIR .. "/feature.cfg"
 local ICON_DIR = "/www/luci-static/resources/app_icons"
 local TMP_ROOT = "/tmp/oaf-upload"
 local MAX_SIZE = 32 * 1024 * 1024
 local ACTIVE_WINDOW = 3600
+local DEFAULT_FEATURE_VERSION = "v25.9.29"
 
 local function trim(value)
     return tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -378,6 +381,7 @@ local function load_feature_catalog()
         FEATURE_FILE,
         FEATURE_LINK,
         FEATURE_ROOT .. "/feature_cn.cfg",
+        FEATURE_DEFAULT_FILE,
     }
 
     for _, candidate in ipairs(candidates) do
@@ -1008,14 +1012,14 @@ local function build_status_response()
         active_apps, class_stats = collect_usage_overview(catalog)
         active_source = "appfilter-usage"
     end
-    local current_version = catalog.version
+    local current_version = trim(read_first_line(VERSION_FILE))
 
     if current_version == "" then
-        current_version = trim(read_first_line(VERSION_FILE))
+        current_version = catalog.version
     end
 
     if current_version == "" then
-        current_version = "20240101 (内置)"
+        current_version = DEFAULT_FEATURE_VERSION
     end
 
     local engine = "OpenAppFilter"

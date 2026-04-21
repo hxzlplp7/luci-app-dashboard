@@ -77,3 +77,18 @@ conntrack -E
 ```
 
 Note: `conntrack` provides flow metadata (`src/dst/proto/port`) and does not contain domain names by itself. Domain attribution comes from DNS log correlation.
+
+## Built-in OAF Feature Library (free-compat)
+
+This package now ships a built-in OAF feature library:
+
+- Default bundle: `feature3.0_cn_20250929-free-compat` (`v25.9.29`)
+- Built-in path: `/usr/share/luci-app-dashboard/oaf-default/feature.cfg` + `app_icons/`
+- First install behavior:
+  - If `/etc/appfilter/feature.cfg` does not exist, it is initialized from the built-in bundle.
+  - Icons are initialized to `/www/luci-static/resources/app_icons/`.
+  - `/etc/appfilter/version.txt` is initialized to `v25.9.29`.
+- Upgrade behavior:
+  - If `/etc/appfilter/feature.cfg` already exists (for example, user uploaded a newer library), package upgrade will not overwrite it.
+
+Manual upload update (`.bin`/`.zip`) is still supported through the existing LuCI upload button.
