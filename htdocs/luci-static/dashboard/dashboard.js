@@ -10,7 +10,8 @@
     const MAX_TRAFFIC_POINTS = 50;
     const RING_CIRCUMFERENCE = 213.63;
     const OAF_MAX_SIZE = 32 * 1024 * 1024;
-    const DOMAIN_REFRESH_INTERVAL = 5000;
+    const HOT_DOMAIN_REFRESH_INTERVAL = 5000;
+    const REALTIME_DOMAIN_REFRESH_INTERVAL = 2000;
     const DOMAIN_MAX_ROWS = 20;
     const CHART_TEXT_COLOR = '#5f6b7a';
     const CHART_GRID_COLOR = 'rgba(64, 89, 124, 0.18)';
@@ -434,29 +435,30 @@
         });
     }
 
-    function renderDomains(data) {
+    function renderDomains(data, mode) {
         const topList = data && Array.isArray(data.top) ? data.top : [];
         const recentList = data && Array.isArray(data.recent) ? data.recent : [];
         const realtimeList = data && Array.isArray(data.realtime) ? data.realtime : [];
 
-        const hotRows = normalizeDomainRows(topList.concat(recentList));
+        if (mode !== 'realtime') {
+            const hotRows = normalizeDomainRows(topList.concat(recentList));
+            renderDomainRows('domains-list', hotRows, I18N.noDomainActivity);
+            setText('domain-source', data && data.source ? data.source : '-');
+        }
+
         const realtimeRows = normalizeDomainRows(realtimeList);
-
-        renderDomainRows('domains-list', hotRows, I18N.noDomainActivity);
         renderDomainRows('realtime-domains-list', realtimeRows, I18N.noDomainActivity);
-
-        setText('domain-source', data && data.source ? data.source : '-');
         setText('realtime-domain-source', data && data.realtime_source ? data.realtime_source : '-');
     }
 
-    async function loadDomains() {
+    async function loadDomains(mode) {
         if (domainRequestInFlight) {
             return;
         }
         domainRequestInFlight = true;
         try {
             const data = await apiRequest(`domains?_=${Date.now()}`);
-            renderDomains(data);
+            renderDomains(data, mode || 'all');
         } finally {
             domainRequestInFlight = false;
         }
@@ -615,14 +617,15 @@
         loadSysInfo();
         loadNetInfo();
         loadDevices();
-        loadDomains();
+        loadDomains('all');
         loadOafStatus();
 
         window.setInterval(refreshTraffic, 3000);
         window.setInterval(loadSysInfo, 10000);
         window.setInterval(loadNetInfo, 12000);
         window.setInterval(loadDevices, 15000);
-        window.setInterval(loadDomains, DOMAIN_REFRESH_INTERVAL);
+        window.setInterval(() => loadDomains('all'), HOT_DOMAIN_REFRESH_INTERVAL);
+        window.setInterval(() => loadDomains('realtime'), REALTIME_DOMAIN_REFRESH_INTERVAL);
         window.setInterval(loadOafStatus, 60000);
     }
 
