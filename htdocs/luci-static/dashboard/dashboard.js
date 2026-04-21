@@ -1,362 +1,575 @@
 (function(window, document) {
     'use strict';
 
-    // 状态配置：从当前页面 URL 自动推导 API 基址
-    // 匹配 /admin/dashboard 后确保不将子路径（如 /api）也匹配进去
-    const _rawPath = window.location.pathname.replace(/\/api(\/.*)?$/, '');
-    const pathMatch = _rawPath.match(/(.+\/admin\/dashboard)/);
+    const rawPath = window.location.pathname.replace(/\/api(\/.*)?$/, '');
+    const pathMatch = rawPath.match(/(.+\/admin\/dashboard)/);
     const API_BASE = pathMatch ? pathMatch[1] + '/api' : '';
     const API_OAF = API_BASE ? API_BASE + '/oaf' : '';
     const LUCI_TOKEN = (window.L && L.env && L.env.token) ? L.env.token : '';
 
-    // 基础工具与安全性增强
-    const escapeHtml = (str) => {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    };
+    const MAX_TRAFFIC_POINTS = 50;
+    const RING_CIRCUMFERENCE = 213.63;
+    const OAF_MAX_SIZE = 32 * 1024 * 1024;
+    const DOMAIN_REFRESH_INTERVAL = 5000;
+    const DOMAIN_MAX_ROWS = 20;
+    const CHART_TEXT_COLOR = '#5f6b7a';
+    const CHART_GRID_COLOR = 'rgba(64, 89, 124, 0.18)';
 
-    const formatBytes = (bytes) => {
-        if (!bytes || bytes === 0) return '0 B';
-        const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
+    let trafficChart = null;
+    let appUsageChart = null;
+    const trafficUp = [];
+    const trafficDown = [];
+    const trafficLabels = [];
+    let domainRequestInFlight = false;
+    let prevTx = 0;
+    let prevRx = 0;
+    let prevAt = 0;
 
-    const formatUptime = (s) => {
-        if (!s) return '-';
-        const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
-        return `${d > 0 ? d + 'd ' : ''}${h}h ${m}m`;
-    };
+    function byId(id) {
+        return document.getElementById(id);
+    }
 
-    async function apiRequest(ep, base = API_BASE) {
-        try { 
-            const res = await fetch(`${base}/${ep}`, { credentials: 'same-origin' }); 
-            return res.ok ? await res.json() : null; 
-        } catch (e) { 
-            return null; 
+    function setText(id, value) {
+        const el = byId(id);
+        if (el) {
+            el.textContent = (value === undefined || value === null || value === '') ? '-' : String(value);
         }
     }
 
-    // Chart.js 全局配置 (确保 Chart 已经加载)
-    if (window.Chart) {
-        Chart.defaults.color = '#9ca3af';
-        Chart.defaults.borderColor = '#374151';
+    function escapeHtml(str) {
+        if (!str) {
+            return '';
+        }
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
-    // 1. 流量图表
-    let trafficChart;
-    const initTrafficChart = () => {
-        const ctx = document.getElementById('trafficChart');
-        if (!ctx) return;
-        const MAX_POINTS = 40;
-        let trafficLabels = Array(MAX_POINTS).fill('');
-        let dataDown = Array(MAX_POINTS).fill(0);
-        let dataUp = Array(MAX_POINTS).fill(0);
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
 
-        trafficChart = new Chart(ctx.getContext('2d'), {
+    function formatBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) {
+            return '0 B';
+        }
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const idx = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        const val = bytes / Math.pow(1024, idx);
+        return `${val.toFixed(val >= 100 ? 0 : val >= 10 ? 1 : 2)} ${units[idx]}`;
+    }
+
+    function formatUptime(seconds) {
+        const s = Number(seconds);
+        if (!Number.isFinite(s) || s <= 0) {
+            return '-';
+        }
+        const days = Math.floor(s / 86400);
+        const hours = Math.floor((s % 86400) / 3600);
+        const mins = Math.floor((s % 3600) / 60);
+        return `${days > 0 ? `${days}d ` : ''}${hours}h ${mins}m`;
+    }
+
+    async function apiRequest(endpoint, base) {
+        const root = base || API_BASE;
+        if (!root) {
+            return null;
+        }
+        try {
+            const response = await fetch(`${root}/${endpoint}`, {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            if (!response.ok) {
+                return null;
+            }
+            return await response.json();
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function setInternetStatus(data) {
+        const el = byId('internet-status');
+        if (!el) {
+            return;
+        }
+        const reason = data && data.onlineReason ? ` (${data.onlineReason})` : '';
+        if (!data) {
+            el.textContent = 'Unknown';
+            el.className = 'stat-value internet-pending';
+            el.title = '';
+            return;
+        }
+        if (data.wanStatus === 'up') {
+            el.textContent = `Online${reason}`;
+            el.className = 'stat-value internet-up';
+            el.title = data.onlineReason || '';
+            return;
+        }
+        el.textContent = `Offline${reason}`;
+        el.className = 'stat-value internet-down';
+        el.title = data.onlineReason || '';
+    }
+
+    function updateGauge(ringId, textId, value) {
+        const ring = byId(ringId);
+        const text = byId(textId);
+        const pct = clamp(Number(value) || 0, 0, 100);
+        if (text) {
+            text.textContent = `${Math.round(pct)}%`;
+        }
+        if (ring) {
+            ring.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - pct / 100));
+        }
+    }
+
+    function initTrafficChart() {
+        const canvas = byId('trafficChart');
+        if (!canvas || !window.Chart) {
+            return;
+        }
+        trafficChart = new Chart(canvas.getContext('2d'), {
             type: 'line',
             data: {
                 labels: trafficLabels,
                 datasets: [
-                    { label: '下行', data: dataDown, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-                    { label: '上行', data: dataUp, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 }
+                    {
+                        label: 'Upload',
+                        data: trafficUp,
+                        borderColor: '#61a7ff',
+                        backgroundColor: 'rgba(97,167,255,0.18)',
+                        pointRadius: 0,
+                        borderWidth: 2,
+                        tension: 0.35,
+                        fill: true
+                    },
+                    {
+                        label: 'Download',
+                        data: trafficDown,
+                        borderColor: '#29c677',
+                        backgroundColor: 'rgba(41,198,119,0.16)',
+                        pointRadius: 0,
+                        borderWidth: 2,
+                        tension: 0.35,
+                        fill: true
+                    }
                 ]
             },
             options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { x: { display: false }, y: { grid: { color: '#2d2e34' }, ticks: { font: { size: 10 } } } },
-                animation: false
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        ticks: {
+                            color: CHART_TEXT_COLOR,
+                            callback: (value) => formatBytes(value)
+                        },
+                        grid: {
+                            color: CHART_GRID_COLOR
+                        }
+                    }
+                }
             }
         });
-        return { dataDown, dataUp };
-    };
+    }
 
-    const { dataDown, dataUp } = initTrafficChart() || { dataDown: [], dataUp: [] };
-    let prevTx = 0, prevRx = 0, prevTime = 0;
+    function initAppUsageChart() {
+        const canvas = byId('appUsageChart');
+        if (!canvas || !window.Chart) {
+            return;
+        }
+        appUsageChart = new Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        data: [],
+                        backgroundColor: [
+                            '#61a7ff',
+                            '#29c677',
+                            '#38d6d9',
+                            '#ff9b54',
+                            '#ffd166',
+                            '#ef476f'
+                        ],
+                        borderWidth: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '66%',
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: CHART_TEXT_COLOR,
+                            boxWidth: 11,
+                            boxHeight: 11,
+                            font: { size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     async function refreshTraffic() {
         const data = await apiRequest('traffic');
-        if (data && trafficChart) {
-            const now = Date.now();
-            if (prevTime !== 0) {
-                const diff = Math.max((now - prevTime) / 1000, 1);
-                const txDelta = data.tx_bytes >= prevTx ? data.tx_bytes - prevTx : 0;
-                const rxDelta = data.rx_bytes >= prevRx ? data.rx_bytes - prevRx : 0;
-                const upSpeed = Math.max(0, txDelta / diff);
-                const downSpeed = Math.max(0, rxDelta / diff);
-                dataUp.push(upSpeed); dataDown.push(downSpeed);
-                dataUp.shift(); dataDown.shift();
-                trafficChart.update();
-                const upEl = document.getElementById('cur-up-speed');
-                const downEl = document.getElementById('cur-down-speed');
-                if (upEl) upEl.innerText = formatBytes(upSpeed) + '/s';
-                if (downEl) downEl.innerText = formatBytes(downSpeed) + '/s';
-            }
-            const totalUp = document.getElementById('total-up');
-            const totalDown = document.getElementById('total-down');
-            if (totalUp) totalUp.innerText = formatBytes(data.tx_bytes);
-            if (totalDown) totalDown.innerText = formatBytes(data.rx_bytes);
-            prevTx = data.tx_bytes; prevRx = data.rx_bytes; prevTime = now;
+        if (!data) {
+            return;
         }
+        const now = Date.now();
+        const tx = Number(data.tx_bytes) || 0;
+        const rx = Number(data.rx_bytes) || 0;
+
+        setText('stat-total-up', formatBytes(tx));
+        setText('stat-total-down', formatBytes(rx));
+
+        if (!prevAt) {
+            prevTx = tx;
+            prevRx = rx;
+            prevAt = now;
+            return;
+        }
+
+        const deltaSec = Math.max((now - prevAt) / 1000, 1);
+        const upRate = Math.max(0, (tx - prevTx) / deltaSec);
+        const downRate = Math.max(0, (rx - prevRx) / deltaSec);
+
+        setText('wan-up-rate', `${formatBytes(upRate)}/s`);
+        setText('wan-down-rate', `${formatBytes(downRate)}/s`);
+
+        prevTx = tx;
+        prevRx = rx;
+        prevAt = now;
+
+        if (!trafficChart) {
+            return;
+        }
+
+        trafficLabels.push('');
+        trafficUp.push(upRate);
+        trafficDown.push(downRate);
+
+        if (trafficLabels.length > MAX_TRAFFIC_POINTS) {
+            trafficLabels.shift();
+            trafficUp.shift();
+            trafficDown.shift();
+        }
+
+        trafficChart.update('none');
     }
 
-    // 2. Dials (CPU/Mem)
-    let cpuDial, memDial;
-    const initDials = () => {
-        const cCtx = document.getElementById('cpuDial');
-        const mCtx = document.getElementById('memDial');
-        if (!cCtx || !mCtx) return;
-
-        cpuDial = new Chart(cCtx.getContext('2d'), {
-            type: 'doughnut', data: { datasets: [{ data: [0, 100], backgroundColor: ['#10b981', '#2d2e34'], borderWidth: 0 }] },
-            options: { responsive: true, cutout: '85%', plugins: { tooltip: false } }
-        });
-        memDial = new Chart(mCtx.getContext('2d'), {
-            type: 'doughnut', data: { datasets: [{ data: [0, 100], backgroundColor: ['#3b82f6', '#2d2e34'], borderWidth: 0 }] },
-            options: { responsive: true, cutout: '85%', plugins: { tooltip: false } }
-        });
-    };
-
-    // 3. App Usage / Distribution
-    let appUsageChart;
-    const initAppUsageChart = () => {
-        const ctx = document.getElementById('appUsageChart');
-        if (!ctx) return;
-        appUsageChart = new Chart(ctx.getContext('2d'), {
-            type: 'doughnut', data: { labels: [], datasets: [{ data: [], backgroundColor: ['#10b981','#8b5cf6','#3b82f6','#f97316','#ef4444','#eab308'], borderWidth: 0 }] },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } } }
-        });
-    };
-
-    // 4. Data Loading
     async function loadSysInfo() {
         const data = await apiRequest('sysinfo');
-        if (data) {
-            document.getElementById('sys-hostname').innerText = data.hostname || '-';
-            document.getElementById('sys-model').innerText = data.model || '-';
-            document.getElementById('sys-firmware').innerText = data.firmware || '-';
-            document.getElementById('sys-kernel').innerText = data.kernel || '-';
-            document.getElementById('sys-uptime').innerText = formatUptime(data.uptime_raw);
-            document.getElementById('cpu-text').innerText = (data.cpuUsage || 0) + '%';
-            if (cpuDial) {
-                cpuDial.data.datasets[0].data = [data.cpuUsage, 100 - data.cpuUsage]; cpuDial.update();
-            }
-            document.getElementById('mem-text').innerText = (data.memUsage || 0) + '%';
-            if (memDial) {
-                memDial.data.datasets[0].data = [data.memUsage, 100 - data.memUsage]; memDial.update();
-            }
-            document.getElementById('cpu-temp').innerText = (data.temp > 0 ? data.temp + '°C' : '-');
-            const tempBar = document.getElementById('temp-bar');
-            if (tempBar) tempBar.style.width = Math.min(data.temp || 0, 100) + '%';
+        if (!data) {
+            return;
+        }
+
+        setText('sys-hostname', data.hostname || '-');
+        setText('sys-model', data.model || '-');
+        setText('sys-firmware', data.firmware || '-');
+        setText('sys-kernel', data.kernel || '-');
+        setText('sys-uptime', formatUptime(data.uptime_raw));
+
+        updateGauge('cpu-ring', 'cpu-text', Number(data.cpuUsage) || 0);
+        updateGauge('mem-ring', 'mem-text', Number(data.memUsage) || 0);
+
+        const temp = Number(data.temp) || 0;
+        setText('cpu-temp', temp > 0 ? `${temp} C` : '-');
+        const tempBar = byId('temp-bar');
+        if (tempBar) {
+            tempBar.style.width = `${clamp(temp, 0, 100)}%`;
         }
     }
 
     async function loadNetInfo() {
         const data = await apiRequest('netinfo');
-        const statusText = document.getElementById('wan-status-text');
+        setInternetStatus(data);
         if (!data) {
-            // API 请求失败降级处理
-            if (statusText) {
-                statusText.innerText = '检测失败';
-                statusText.className = 'text-yellow-500 font-semibold text-sm';
-            }
             return;
         }
-        if (data.wanStatus === 'up') {
-            if (statusText) { statusText.innerText = '已联网'; statusText.className = 'text-accentGreen font-semibold text-sm'; }
-        } else {
-            if (statusText) { statusText.innerText = '未连接'; statusText.className = 'text-red-500 font-semibold text-sm'; }
+        setText('lan-ip', data.lanIp || '-');
+        setText('wan-ip', data.wanIp || '-');
+        setText('gateway', data.gateway || '-');
+        setText('interface-name', data.interfaceName || '-');
+        setText('conn-count', Number(data.connCount) || 0);
+    }
+
+    function renderDevices(devices) {
+        const body = byId('devices-list');
+        if (!body) {
+            return;
         }
-        const lanEl = document.getElementById('lan-ip');
-        const wanEl = document.getElementById('wan-ip');
-        if (lanEl) lanEl.innerText = data.lanIp || '-';
-        if (wanEl) wanEl.innerText = data.wanIp || '-';
-        if (document.getElementById('conn-count')) {
-            document.getElementById('conn-count').innerText = data.connCount || '-';
+        if (!devices || !devices.length) {
+            body.innerHTML = '<tr><td colspan="3">No online device data</td></tr>';
+            return;
         }
+        body.innerHTML = devices.map((dev) => {
+            const name = escapeHtml(dev.name || dev.mac || '-');
+            const ip = escapeHtml(dev.ip || '-');
+            const dotClass = dev.active ? 'status-dot' : 'status-dot off';
+            return `<tr><td title="${name}">${name}</td><td>${ip}</td><td><span class="${dotClass}"></span></td></tr>`;
+        }).join('');
     }
 
     async function loadDevices() {
-        const devices = await apiRequest('devices');
-        if (!devices) return;
-        const countEl = document.getElementById('active-device-count');
-        if (countEl) countEl.innerText = devices.filter(d => d.active).length;
-        const html = devices.slice(0, 10).map(dev => `
-            <div class="flex items-center justify-between text-xxs group">
-                <span class="text-gray-400 truncate w-32" title="${escapeHtml(dev.name || dev.mac)}">${escapeHtml(dev.name || dev.mac)}</span>
-                <span class="text-textMuted font-mono">${escapeHtml(dev.ip)}</span>
-                <span class="w-1.5 h-1.5 rounded-full ${dev.active ? 'bg-accentGreen' : 'bg-gray-600'}"></span>
-            </div>
-        `).join('');
-        document.getElementById('devices-list').innerHTML = html;
-        if (window.lucide) lucide.createIcons();
+        const data = await apiRequest('devices');
+        if (!Array.isArray(data)) {
+            renderDevices([]);
+            setText('active-device-count', 0);
+            return;
+        }
+        const activeCount = data.filter((dev) => !!dev.active).length;
+        setText('active-device-count', activeCount);
+        renderDevices(data.slice(0, 16));
+    }
+
+    function renderDomains(data) {
+        const list = byId('domains-list');
+        if (!list) {
+            return;
+        }
+        const topList = data && Array.isArray(data.top) ? data.top : [];
+        const recentList = data && Array.isArray(data.recent) ? data.recent : [];
+        const merged = [];
+        const seen = new Set();
+
+        const pushRows = (rows) => {
+            rows.forEach((item) => {
+                const domain = String((item && item.domain) || '').trim();
+                if (!domain || seen.has(domain)) {
+                    return;
+                }
+                seen.add(domain);
+                merged.push({
+                    domain,
+                    count: Number(item.count) || 0
+                });
+            });
+        };
+
+        pushRows(topList);
+        pushRows(recentList);
+
+        if (!merged.length) {
+            list.innerHTML = '<div class="domain-row">No domain activity</div>';
+            setText('domain-source', data && data.source ? data.source : '-');
+            return;
+        }
+        setText('domain-source', data.source || '-');
+        const max = Math.max(1, Number(merged[0].count) || 1);
+        list.innerHTML = merged.slice(0, DOMAIN_MAX_ROWS).map((item) => {
+            const name = escapeHtml(item.domain || '-');
+            const count = Number(item.count) || 0;
+            const pct = Math.round((count / max) * 100);
+            return `
+                <div class="domain-row">
+                    <div class="domain-meta">
+                        <span class="domain-name" title="${name}">${name}</span>
+                        <span class="domain-count">${count}</span>
+                    </div>
+                    <div class="domain-track"><div class="domain-fill" data-pct="${pct}"></div></div>
+                </div>
+            `;
+        }).join('');
+        list.querySelectorAll('.domain-fill').forEach((el) => {
+            const pct = Number(el.getAttribute('data-pct')) || 0;
+            el.style.width = `${pct}%`;
+        });
     }
 
     async function loadDomains() {
-        const data = await apiRequest('domains');
-        if (!data || !data.top) return;
-        const max = data.top[0] ? data.top[0].count : 1;
-        // 进度条宽度通过 CSS 自定义属性注入，避免内联 style 触发 style-src CSP
-        const html = data.top.slice(0, 8).map(item => {
-            const pct = Math.round((item.count / max) * 100);
-            return `<div class="space-y-1 domain-bar-item" data-pct="${pct}">
-                <div class="flex justify-between text-xxs"><span class="truncate w-40 font-mono" title="${escapeHtml(item.domain)}">${escapeHtml(item.domain)}</span><span class="text-accentBlue">${item.count}</span></div>
-                <div class="w-full bg-bgBase h-0.5"><div class="bg-accentBlue h-full domain-bar-fill"></div></div>
-            </div>`;
+        if (domainRequestInFlight) {
+            return;
+        }
+        domainRequestInFlight = true;
+        try {
+            const data = await apiRequest(`domains?_=${Date.now()}`);
+            renderDomains(data);
+        } finally {
+            domainRequestInFlight = false;
+        }
+    }
+
+    function renderActiveApps(apps) {
+        const box = byId('oaf-apps-list');
+        if (!box) {
+            return;
+        }
+        if (!apps || !apps.length) {
+            box.innerHTML = '<div class="app-item"><div class="app-name">No active app data</div></div>';
+            return;
+        }
+        box.innerHTML = apps.slice(0, 20).map((app) => {
+            const name = escapeHtml(app.name || '-');
+            const icon = app.icon ? escapeHtml(app.icon) : '';
+            const iconHtml = icon
+                ? `<img class="app-icon" src="${icon}" alt="${name}">`
+                : '<div class="app-icon"><i data-lucide="globe" class="w-4 h-4"></i></div>';
+            return `<div class="app-item" title="${name}">${iconHtml}<div class="app-name">${name}</div></div>`;
         }).join('');
-        const listEl = document.getElementById('domains-list');
-        if (!listEl) return;
-        listEl.innerHTML = html;
-        // 渲染后通过 JS 设置宽度（style.setProperty 不受 CSP 限制）
-        listEl.querySelectorAll('.domain-bar-item').forEach(el => {
-            const fill = el.querySelector('.domain-bar-fill');
-            if (fill) fill.style.width = el.dataset.pct + '%';
-        });
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
     }
 
     async function loadOafStatus() {
         const data = await apiRequest('status', API_OAF);
-        const listEl = document.getElementById('oaf-apps-list');
-        const versionEl = document.getElementById('oaf-version');
-        const engineEl = document.getElementById('oaf-engine');
-
-        // 情况1: API 请求失败 (OAF 模块未安装 / 后端异常)
-        if (!data || data.error) {
-            if (versionEl) versionEl.innerText = '未安装';
-            if (engineEl) engineEl.innerText = '不可用';
-            if (listEl) listEl.innerHTML = '<span class="text-xxs text-textMuted italic">OAF 未安装或不可用</span>';
+        if (!data || data.error || data.available === false) {
+            setText('oaf-version', 'Unavailable');
+            setText('oaf-engine', '-');
+            setText('app-count', 0);
+            renderActiveApps([]);
+            if (appUsageChart) {
+                appUsageChart.data.labels = [];
+                appUsageChart.data.datasets[0].data = [];
+                appUsageChart.update();
+            }
             return;
         }
 
-        // 情况2: API 正常返回，但 OAF 服务不可用
-        if (data.available === false) {
-            if (versionEl) versionEl.innerText = '未检测到';
-            if (engineEl) engineEl.innerText = '未运行';
-            if (listEl) listEl.innerHTML = '<span class="text-xxs text-textMuted italic">OAF 特征库未加载</span>';
-            return;
-        }
+        setText('oaf-version', data.current_version || '-');
+        setText('oaf-engine', data.engine || '-');
 
-        // 正常状态
-        if (versionEl) versionEl.innerText = data.current_version || '-';
-        if (engineEl) engineEl.innerText = data.engine || '-';
+        const activeApps = Array.isArray(data.active_apps) ? data.active_apps : [];
+        setText('app-count', activeApps.length);
+        renderActiveApps(activeApps);
 
-        if (data.class_stats && data.class_stats.length > 0 && appUsageChart) {
-            appUsageChart.data.labels = data.class_stats.map(item => item.name || '-');
-            appUsageChart.data.datasets[0].data = data.class_stats.map(item => item.time || 0);
+        if (appUsageChart && Array.isArray(data.class_stats)) {
+            appUsageChart.data.labels = data.class_stats.map((item) => item.name || '-');
+            appUsageChart.data.datasets[0].data = data.class_stats.map((item) => Number(item.time) || 0);
             appUsageChart.update();
-        }
-
-        if (data.active_apps && data.active_apps.length > 0) {
-            const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-cyan-500'];
-            listEl.innerHTML = data.active_apps.slice(0, 10).map((app, i) => {
-                const hasIcon = app.icon && !app.icon.includes('default.png');
-                const iconHtml = hasIcon
-                    ? `<img src="${escapeHtml(app.icon)}" class="w-5 h-5 object-contain" onerror="this.parentElement.innerHTML='<i data-lucide=\\'globe\\' class=\\'w-4 h-4\\'></i>'">`
-                    : `<i data-lucide="globe" class="w-4 h-4"></i>`;
-                return `<div class="flex flex-col items-center gap-1 w-10 group cursor-help" title="${escapeHtml(app.name)}">
-                    <div class="w-8 h-8 rounded ${colors[i % colors.length]} flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform">
-                        ${iconHtml}
-                    </div>
-                    <span class="text-xxs text-textMuted truncate w-full text-center">${escapeHtml(app.name)}</span>
-                </div>`;
-            }).join('');
-            if (window.lucide) lucide.createIcons();
-        } else if (listEl) {
-            listEl.innerHTML = '<span class="text-xxs text-textMuted italic">暂无活跃应用数据</span>';
         }
     }
 
-    async function uploadOafFeature() {
-        const fileInput = document.getElementById('oaf-file-input');
-        if (!fileInput || !fileInput.files[0]) return;
-        
-        const file = fileInput.files[0];
-        if (file.size > 32 * 1024 * 1024) {
-            alert('文件过大：特征库文件不能超过 32MB');
+    function resetUploadState() {
+        const btn = byId('oaf-upload-btn');
+        const bar = byId('oaf-bar');
+        const progress = byId('oaf-progress-container');
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Update Feature Library';
+        }
+        if (bar) {
+            bar.style.width = '0%';
+        }
+        if (progress) {
+            progress.classList.add('hidden');
+        }
+    }
+
+    function uploadOafFeature() {
+        const fileInput = byId('oaf-file-input');
+        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
             return;
         }
-        if (!file.name.match(/\.(bin|zip)$/i)) {
-            alert('文件格式错误：请上传 .bin 或 .zip 格式的特征库');
+        const file = fileInput.files[0];
+        if (file.size > OAF_MAX_SIZE) {
+            alert('File is too large (max 32MB).');
             return;
+        }
+        if (!/\.(bin|zip)$/i.test(file.name)) {
+            alert('Unsupported file type. Use .bin or .zip');
+            return;
+        }
+
+        const btn = byId('oaf-upload-btn');
+        const bar = byId('oaf-bar');
+        const progress = byId('oaf-progress-container');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Uploading...';
+        }
+        if (progress) {
+            progress.classList.remove('hidden');
+        }
+        if (bar) {
+            bar.style.width = '0%';
         }
 
         const formData = new FormData();
         formData.append('token', LUCI_TOKEN);
         formData.append('file', file);
-        const btn = document.getElementById('oaf-upload-btn');
-        const progress = document.getElementById('oaf-progress-container');
-        const bar = document.getElementById('oaf-bar');
-        
-        btn.disabled = true; 
-        btn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 处理中...';
-        if (window.lucide) lucide.createIcons();
-        progress.classList.remove('hidden');
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `${API_OAF}/upload?token=${encodeURIComponent(LUCI_TOKEN)}`, true);
-        xhr.upload.onprogress = (e) => { 
-            if (e.lengthComputable) { bar.style.width = Math.round((e.loaded/e.total)*100) + '%'; } 
-        };
-        xhr.onload = () => { 
-            let res = { success: false, message: '服务器响应异常' };
-            try { res = JSON.parse(xhr.responseText); } catch(e) {}
-            
-            if (xhr.status === 200 && res.success) {
-                btn.innerHTML = '<i data-lucide="check-circle" class="w-3 h-3"></i> 更新成功';
-                if (window.lucide) lucide.createIcons();
-                setTimeout(() => location.reload(), 1500); 
-            } else {
-                alert('上传失败: ' + (res.message || '未知错误'));
-                btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="upload" class="w-3 h-3"></i> 立即更新';
-                progress.classList.add('hidden');
-                bar.style.width = '0%';
-                if (window.lucide) lucide.createIcons();
+
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable && bar) {
+                const pct = Math.round((event.loaded / event.total) * 100);
+                bar.style.width = `${pct}%`;
             }
         };
-        xhr.onerror = () => {
-            alert('网络请求失败，请检查连接');
-            btn.disabled = false;
-            btn.innerHTML = '<i data-lucide="upload" class="w-3 h-3"></i> 立即更新';
-            progress.classList.add('hidden');
-            if (window.lucide) lucide.createIcons();
+
+        xhr.onload = () => {
+            let payload = {};
+            try {
+                payload = JSON.parse(xhr.responseText || '{}');
+            } catch (error) {
+                payload = {};
+            }
+            if (xhr.status === 200 && payload.success) {
+                if (btn) {
+                    btn.textContent = 'Update Success';
+                }
+                setTimeout(() => window.location.reload(), 1200);
+                return;
+            }
+            resetUploadState();
+            alert(`Upload failed: ${payload.message || 'Unknown error'}`);
         };
+
+        xhr.onerror = () => {
+            resetUploadState();
+            alert('Network error while uploading.');
+        };
+
         xhr.send(formData);
     }
 
-    // 初始化与事件绑定
-    const init = () => {
-        initDials();
+    function init() {
+        initTrafficChart();
         initAppUsageChart();
-        
-        refreshTraffic();
-        loadSysInfo(); 
-        loadNetInfo(); 
-        loadDevices(); 
-        loadDomains(); 
-        loadOafStatus();
 
-        const uploadBtn = document.getElementById('oaf-upload-btn');
+        const uploadBtn = byId('oaf-upload-btn');
         if (uploadBtn) {
             uploadBtn.addEventListener('click', uploadOafFeature);
         }
 
-        if (window.lucide) lucide.createIcons();
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
 
-        setInterval(refreshTraffic, 3000);
-        setInterval(loadSysInfo, 10000);
-        setInterval(loadNetInfo, 15000);
-        setInterval(loadDevices, 15000);
-        setInterval(loadOafStatus, 60000);
-    };
+        refreshTraffic();
+        loadSysInfo();
+        loadNetInfo();
+        loadDevices();
+        loadDomains();
+        loadOafStatus();
+
+        window.setInterval(refreshTraffic, 3000);
+        window.setInterval(loadSysInfo, 10000);
+        window.setInterval(loadNetInfo, 12000);
+        window.setInterval(loadDevices, 15000);
+        window.setInterval(loadDomains, DOMAIN_REFRESH_INTERVAL);
+        window.setInterval(loadOafStatus, 60000);
+    }
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-
 })(window, document);

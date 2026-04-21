@@ -3,185 +3,161 @@
 <script src="/luci-static/dashboard/chart.js"></script>
 <script src="/luci-static/dashboard/lucide.js"></script>
 
-<div class="bg-bgBase text-textMain min-h-[calc(100vh-120px)] flex flex-col p-4 rounded-xl overflow-y-auto">
-    <!-- 头部面包屑 -->
-    <div class="flex items-center gap-2 text-xs text-textMuted mb-4">
-        <i data-lucide="home" class="w-3 h-3"></i>
-        <span>></span>
-        <span>仪表板</span>
-    </div>
-
-    <!-- 主布局网格 -->
-    <div class="flex flex-col lg:flex-row gap-4">
-        
-        <!-- 左侧/中间 主内容区 -->
-        <div class="flex-1 flex flex-col gap-4 min-w-0">
-            
-            <!-- 指标行 -->
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div class="bg-bgPanel rounded p-4 flex flex-col justify-center border border-borderMain">
-                    <div class="text-xs text-textMuted mb-1">联网状态</div>
-                    <div class="text-accentGreen font-semibold text-sm" id="wan-status-text">检测中...</div>
+<div class="dash-page">
+    <div class="dash-shell">
+        <div class="dash-main">
+            <div class="top-stats">
+                <div class="stat-card">
+                    <div class="stat-label"><%:Internet Status%></div>
+                    <div class="stat-value internet-up" id="internet-status"><%:Checking...%></div>
                 </div>
-                <div class="bg-bgPanel rounded p-4 flex flex-col justify-center border border-borderMain">
-                    <div class="text-xs text-textMuted mb-1">在线设备</div>
-                    <div class="text-gray-200 font-semibold text-xl" id="active-device-count">0</div>
+                <div class="stat-card">
+                    <div class="stat-label"><%:Online Devices%></div>
+                    <div class="stat-value" id="active-device-count">0</div>
                 </div>
-                <div class="bg-bgPanel rounded p-4 flex flex-col justify-center border border-borderMain">
-                    <div class="text-xs text-textMuted mb-1">连接数</div>
-                    <div class="text-gray-200 font-semibold text-xl" id="conn-count">-</div>
+                <div class="stat-card">
+                    <div class="stat-label"><%:Connections%></div>
+                    <div class="stat-value" id="conn-count">0</div>
                 </div>
-                <div class="bg-bgPanel rounded p-4 flex flex-col justify-center border border-borderMain">
-                    <div class="text-xs text-textMuted mb-1">累计下载</div>
-                    <div class="text-gray-200 font-semibold text-sm truncate" id="total-down">-</div>
+                <div class="stat-card">
+                    <div class="stat-label"><%:Total Download%></div>
+                    <div class="stat-value" id="stat-total-down">0 B</div>
                 </div>
-                <div class="bg-bgPanel rounded p-4 flex flex-col justify-center border border-borderMain">
-                    <div class="text-xs text-textMuted mb-1">累计上传</div>
-                    <div class="text-gray-200 font-semibold text-sm truncate" id="total-up">-</div>
+                <div class="stat-card">
+                    <div class="stat-label"><%:Total Upload%></div>
+                    <div class="stat-value" id="stat-total-up">0 B</div>
                 </div>
             </div>
 
-            <!-- 流量统计图表 -->
-            <div class="bg-bgPanel rounded p-4 border border-borderMain flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-medium text-gray-200 flex items-center gap-2">
-                        <i data-lucide="activity" class="w-4 h-4 text-accentGreen"></i>
-                        流量统计(wan)
-                    </h3>
-                </div>
-                <div class="h-64 w-full relative">
-                    <canvas id="trafficChart"></canvas>
-                </div>
-                <div class="flex justify-center gap-6 mt-4 text-[10px] text-textMuted font-mono">
-                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-accentGreen"></span> 下行: <span id="cur-down-speed">0 KB/s</span></span>
-                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-accentBlue"></span> 上行: <span id="cur-up-speed">0 KB/s</span></span>
-                </div>
+            <div class="main-grid">
+                <section class="card full">
+                    <div class="card-head">
+                        <h3><%:Traffic Statistics%></h3>
+                    </div>
+                    <div class="chart-wrap traffic-wrap">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                    <div class="rate-line">
+                        <span><%:Upload%>: <strong id="wan-up-rate">0 B/s</strong></span>
+                        <span><%:Download%>: <strong id="wan-down-rate">0 B/s</strong></span>
+                    </div>
+                </section>
+
+                <section class="card full">
+                    <div class="card-head">
+                        <h3><%:Active Apps%></h3>
+                        <span class="sub-num" id="app-count">0</span>
+                    </div>
+                    <div class="app-grid" id="oaf-apps-list"></div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <h3><%:App Distribution%></h3>
+                    </div>
+                    <div class="chart-wrap pie-wrap">
+                        <canvas id="appUsageChart"></canvas>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <h3><%:Hot Domains%></h3>
+                        <span class="sub-note" id="domain-source">-</span>
+                    </div>
+                    <div class="domain-list" id="domains-list"></div>
+                </section>
+
+                <section class="card list full">
+                    <div class="card-head">
+                        <h3><%:Online Device List%></h3>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th><%:Name%></th>
+                                    <th><%:IP Address%></th>
+                                    <th><%:Status%></th>
+                                </tr>
+                            </thead>
+                            <tbody id="devices-list"></tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
-
-            <!-- OAF 活跃应用与特征库更新 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-bgPanel rounded p-4 border border-borderMain">
-                    <h3 class="text-sm font-medium text-gray-200 mb-4 flex items-center gap-2">
-                        <i data-lucide="layout-grid" class="w-4 h-4 text-accentPurple"></i>
-                        活跃APP
-                    </h3>
-                    <div class="flex flex-wrap gap-x-6 gap-y-4" id="oaf-apps-list">
-                        <!-- 由 JS 动态填充 -->
-                    </div>
-                </div>
-
-                <!-- OAF 特征库更新 -->
-                <div class="bg-bgPanel rounded p-4 border border-borderMain flex flex-col">
-                    <h3 class="text-sm font-medium text-gray-200 mb-4 flex items-center gap-2">
-                        <i data-lucide="shield-check" class="w-4 h-4 text-accentOrange"></i>
-                        OAF 特征库
-                    </h3>
-                    <div class="space-y-2 text-xs mb-4">
-                        <div class="flex justify-between"><span class="text-textMuted">版本</span><span class="text-gray-300" id="oaf-version">-</span></div>
-                        <div class="flex justify-between"><span class="text-textMuted">引擎</span><span class="text-gray-300" id="oaf-engine">-</span></div>
-                    </div>
-                    <div class="mt-auto space-y-3">
-                        <label class="block">
-                            <input type="file" title="选择特征库文件" id="oaf-file-input" class="block w-full text-[10px] text-textMuted
-                              file:mr-2 file:py-1 file:px-3
-                              file:rounded-full file:border-0
-                              file:text-xxs file:font-semibold
-                              file:bg-bgHover file:text-accentOrange
-                              cursor-pointer
-                            "/>
-                        </label>
-                        <button id="oaf-upload-btn" class="w-full py-1.5 bg-accentOrange hover:bg-orange-600 text-white text-xs rounded transition-colors flex items-center justify-center gap-2">
-                            <i data-lucide="upload" class="w-3 h-3"></i> 立即更新
-                        </button>
-                        <div id="oaf-progress-container" class="hidden">
-                            <div class="w-full bg-bgBase h-1 rounded overflow-hidden">
-                                <div id="oaf-bar" class="bg-accentBlue h-full w-0 transition-all duration-300"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 分布图表排 -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-bgPanel rounded p-4 border border-borderMain flex flex-col h-64 overflow-hidden">
-                    <h3 class="text-sm font-medium text-gray-200 mb-2">APP 统计分布</h3>
-                    <div class="flex-1 relative min-h-0">
-                        <canvas id="appUsageChart" class="absolute inset-0 w-full h-full"></canvas>
-                    </div>
-                </div>
-                <div class="bg-bgPanel rounded p-4 border border-borderMain flex flex-col h-64">
-                    <h3 class="text-sm font-medium text-gray-200 mb-2">活跃域名</h3>
-                    <div class="flex-1 overflow-y-auto space-y-2" id="domains-list">
-                    </div>
-                </div>
-            </div>
-
         </div>
 
-        <!-- 右侧 系统面板区 -->
-        <div class="w-full lg:w-72 flex flex-col gap-4 shrink-0">
-            
-            <!-- 系统信息 -->
-            <div class="bg-bgPanel rounded p-4 border border-borderMain">
-                <h3 class="text-sm font-medium text-gray-200 mb-3 border-b border-borderMain pb-2">系统信息</h3>
-                <div class="space-y-2 text-xs">
-                    <div class="flex justify-between"><span class="text-textMuted">主机名</span><span class="text-gray-300" id="sys-hostname">-</span></div>
-                    <div class="flex justify-between"><span class="text-textMuted">设备型号</span><span class="text-gray-300" id="sys-model">-</span></div>
-                    <div class="flex justify-between"><span class="text-textMuted">固件版本</span><span class="text-gray-300 font-mono" id="sys-firmware">-</span></div>
-                    <div class="flex justify-between"><span class="text-textMuted">内核版本</span><span class="text-gray-300 font-mono" id="sys-kernel">-</span></div>
-                    <div class="flex justify-between"><span class="text-textMuted">运行时间</span><span class="text-gray-300" id="sys-uptime">-</span></div>
+        <aside class="dash-side">
+            <section class="mini-card">
+                <h4><%:System Information%></h4>
+                <div class="kv">
+                    <div><%:Hostname%></div><div id="sys-hostname">-</div>
+                    <div><%:Model%></div><div id="sys-model">-</div>
+                    <div><%:Firmware%></div><div id="sys-firmware">-</div>
+                    <div><%:Kernel%></div><div id="sys-kernel">-</div>
+                    <div><%:Uptime%></div><div id="sys-uptime">-</div>
                 </div>
-            </div>
+            </section>
 
-            <!-- 运行状态 Dials -->
-            <div class="bg-bgPanel rounded p-4 border border-borderMain">
-                <h3 class="text-sm font-medium text-gray-200 mb-3 border-b border-borderMain pb-2">运行状态</h3>
-                <div class="flex justify-around items-center pt-2">
-                    <div class="relative w-16 h-16">
-                        <canvas id="cpuDial"></canvas>
-                        <div class="chart-center-text text-[10px] text-gray-200" id="cpu-text">0%</div>
-                        <div class="text-center text-xxs text-textMuted mt-1 absolute -bottom-5 w-full">CPU</div>
+            <section class="mini-card">
+                <h4><%:Runtime Status%></h4>
+                <div class="gauge-row">
+                    <div class="gauge-box">
+                        <svg viewBox="0 0 100 100" class="gauge-svg">
+                            <circle class="gauge-bg" cx="50" cy="50" r="34"></circle>
+                            <circle class="gauge-ring cpu-ring" cx="50" cy="50" r="34" id="cpu-ring"></circle>
+                        </svg>
+                        <div class="gauge-value" id="cpu-text">0%</div>
+                        <div class="gauge-label">CPU</div>
                     </div>
-                    <div class="relative w-16 h-16">
-                        <canvas id="memDial"></canvas>
-                        <div class="chart-center-text text-[10px] text-gray-200" id="mem-text">0%</div>
-                        <div class="text-center text-xxs text-textMuted mt-1 absolute -bottom-5 w-full">内存</div>
+                    <div class="gauge-box">
+                        <svg viewBox="0 0 100 100" class="gauge-svg">
+                            <circle class="gauge-bg" cx="50" cy="50" r="34"></circle>
+                            <circle class="gauge-ring mem-ring" cx="50" cy="50" r="34" id="mem-ring"></circle>
+                        </svg>
+                        <div class="gauge-value" id="mem-text">0%</div>
+                        <div class="gauge-label"><%:Memory%></div>
                     </div>
                 </div>
-                <div class="h-6"></div>
-            </div>
+            </section>
 
-            <!-- 温度 -->
-            <div class="bg-bgPanel rounded p-4 border border-borderMain">
-                <h3 class="text-sm font-medium text-gray-200 mb-3 border-b border-borderMain pb-2">温度</h3>
-                <div class="flex items-center justify-between text-xs mb-1">
-                    <span class="text-textMuted">CPU</span>
-                    <span class="text-gray-300" id="cpu-temp">-</span>
+            <section class="mini-card">
+                <h4><%:Network%></h4>
+                <div class="kv">
+                    <div>LAN IP</div><div id="lan-ip">-</div>
+                    <div>WAN IP</div><div id="wan-ip">-</div>
+                    <div><%:Gateway%></div><div id="gateway">-</div>
+                    <div><%:Interface%></div><div id="interface-name">-</div>
                 </div>
-                <div class="w-full bg-bgBase rounded-full h-1 border border-borderMain overflow-hidden">
-                    <!-- w-0 为初始状态，由 JS 通过 style.width 设置（不受 CSP 限制） -->
-                    <div id="temp-bar" class="bg-accentOrange h-full transition-all duration-500" style="width:0"></div>
-                </div>
-            </div>
+            </section>
 
-            <!-- 网络面板 -->
-            <div class="bg-bgPanel rounded p-4 border border-borderMain">
-                <h3 class="text-sm font-medium text-gray-200 mb-3 border-b border-borderMain pb-2">网络</h3>
-                <div class="space-y-2 text-xs">
-                    <div class="flex justify-between"><span class="text-textMuted">LAN IP</span><span class="text-gray-300" id="lan-ip">-</span></div>
-                    <div class="flex justify-between"><span class="text-textMuted">WAN IP</span><span class="text-gray-300" id="wan-ip">-</span></div>
+            <section class="mini-card">
+                <h4><%:Temperature%></h4>
+                <div class="temp-line">
+                    <span>CPU</span>
+                    <span id="cpu-temp">-</span>
                 </div>
-            </div>
-
-            <!-- 在线设备简表 -->
-            <div class="bg-bgPanel rounded p-4 border border-borderMain flex-1">
-                <h3 class="text-sm font-medium text-gray-200 mb-3 border-b border-borderMain pb-2">在线设备</h3>
-                <div class="space-y-2 overflow-y-auto max-h-48" id="devices-list">
+                <div class="meter">
+                    <div class="bar" id="temp-bar"></div>
                 </div>
-            </div>
+            </section>
 
-        </div>
+            <section class="mini-card">
+                <h4>OAF</h4>
+                <div class="kv oaf-kv">
+                    <div><%:Version%></div><div id="oaf-version">-</div>
+                    <div><%:Engine%></div><div id="oaf-engine">-</div>
+                </div>
+                <div class="oaf-upload">
+                    <input type="file" id="oaf-file-input" accept=".bin,.zip">
+                    <button id="oaf-upload-btn" type="button"><%:Update Feature Library%></button>
+                    <div id="oaf-progress-container" class="oaf-progress hidden">
+                        <div id="oaf-bar" class="oaf-progress-bar"></div>
+                    </div>
+                </div>
+            </section>
+        </aside>
     </div>
 </div>
 

@@ -209,6 +209,14 @@ local function read_default_route_gateway()
     return exec_trim("ip -6 route show default | awk 'NR==1 {print $3}'")
 end
 
+local function read_any_global_ipv4()
+    return exec_trim("ip -4 addr show scope global up | awk '/inet / && $NF != \"lo\" {print $2; exit}' | cut -d/ -f1")
+end
+
+local function read_any_global_ipv6()
+    return exec_trim("ip -6 addr show scope global up | awk '/inet6 / {print $2; exit}' | cut -d/ -f1")
+end
+
 local function resolve_lan_ip(uci)
     local lan_status = util.ubus("network.interface.lan", "status", {}) or {}
     local lan_ip = first_ipv4_address(lan_status)
@@ -288,14 +296,20 @@ local function resolve_uplink_status()
     if wan_ip == "" then
         wan_ip = read_ipv4_from_device(best.l3_device or best.device or default_dev)
     end
+    if wan_ip == "" then
+        wan_ip = read_any_global_ipv4()
+    end
 
     local wan_ipv6 = first_ipv6_address(best)
     if wan_ipv6 == "" then
         wan_ipv6 = read_ipv6_from_device(best.l3_device or best.device or default_dev)
     end
+    if wan_ipv6 == "" then
+        wan_ipv6 = read_any_global_ipv6()
+    end
 
-    -- Follow quickstart-like behavior: use link/route/IP state as primary signal.
-    -- Active probe remains diagnostic only and does not gate online status.
+    -- FakeIP/transparent-proxy setups often expose non-standard interface states.
+    -- Prefer route/IP evidence first; keep active probing diagnostic-only.
     local link_up = best.up == true
     local has_wan_ip = wan_ip ~= "" or wan_ipv6 ~= ""
     local gateway = read_default_route_gateway()
@@ -307,8 +321,19 @@ local function resolve_uplink_status()
     end
 
     local is_online = false
-    if link_up and (route_ready or has_wan_ip) then
+    local online_reason = "no-route-no-ip"
+    if route_ready and has_wan_ip then
         is_online = true
+        online_reason = "route+ip"
+    elseif route_ready and default_dev ~= "" then
+        is_online = true
+        online_reason = "default-route"
+    elseif has_wan_ip and (link_up or default_dev ~= "") then
+        is_online = true
+        online_reason = "ip-present"
+    elseif probe_ok then
+        is_online = true
+        online_reason = "probe-ok"
     end
 
     return {
@@ -321,6 +346,7 @@ local function resolve_uplink_status()
         route_ready = route_ready,
         probe_ok = probe_ok,
         gateway = gateway,
+        online_reason = online_reason,
         dns = to_array(best and best["dns-server"] or {}),
         uptime = tonumber(best and best.uptime or 0) or 0,
     }
@@ -408,28 +434,145 @@ local function collect_domains_from_command(command)
     return domains
 end
 
-local function collect_domain_source()
-    local plugin_sources = {
-        { name = "openclash", path = "/tmp/openclash.log", command = "tail -n 1500 /tmp/openclash.log" },
-        { name = "passwall", path = "/tmp/log/passwall.log", command = "tail -n 1500 /tmp/log/passwall.log" },
-        { name = "passwall2", path = "/tmp/log/passwall2.log", command = "tail -n 1500 /tmp/log/passwall2.log" },
-        { name = "homeproxy", path = "/tmp/homeproxy.log", command = "tail -n 1500 /tmp/homeproxy.log" },
-        { name = "mihomo", path = "/tmp/mihomo.log", command = "tail -n 1500 /tmp/mihomo.log" },
-        { name = "sing-box", path = "/tmp/sing-box.log", command = "tail -n 1500 /tmp/sing-box.log" },
-    }
+local function collect_domains_from_appfilter_visitlist()
+    local domains = {}
+    local ok, payload = pcall(util.ubus, "appfilter", "visit_list", {})
+    if not ok or type(payload) ~= "table" then
+        return domains
+    end
 
-    for _, source in ipairs(plugin_sources) do
-        if path_exists(source.path) then
-            local domains = collect_domains_from_command(source.command)
-            if #domains > 0 then
-                return source.name, domains
+    local function push_domain(value, weight)
+        local domain = normalize_domain(value)
+        if domain then
+            local times = math.floor(tonumber(weight) or 1)
+            if times < 1 then
+                times = 1
+            elseif times > 200 then
+                times = 200
+            end
+            for _ = 1, times do
+                domains[#domains + 1] = domain
+                if #domains >= 8000 then
+                    return
+                end
             end
         end
     end
 
-    local direct = collect_domains_from_command("logread | grep -iE 'dnsmasq|smartdns' | tail -n 1500")
-    if #direct > 0 then
-        return "direct", direct
+    local function pick_weight(node)
+        if type(node) ~= "table" then
+            return 1
+        end
+        local candidates = {
+            node.count, node.cnt, node.hits, node.hit, node.times, node.visits,
+            node.visit_count, node.requests, node.req, node.reqs, node.freq, node.frequency,
+        }
+        for _, raw in ipairs(candidates) do
+            local parsed = tonumber(raw)
+            if parsed and parsed > 0 then
+                return parsed
+            end
+        end
+        return 1
+    end
+
+    local function walk(node)
+        if #domains >= 8000 then
+            return
+        end
+        local t = type(node)
+        if t == "table" then
+            local weight = pick_weight(node)
+            local local_seen = {}
+            for k, v in pairs(node) do
+                local key = tostring(k):lower()
+                if type(v) == "string" then
+                    if key:find("domain", 1, true) or key:find("host", 1, true) or key:find("sni", 1, true) or key:find("url", 1, true) then
+                        local candidate = tostring(v)
+                        if key:find("url", 1, true) then
+                            candidate = candidate:match("^https?://([^/%?#:]+)") or candidate
+                        end
+                        local normalized = normalize_domain(candidate)
+                        if normalized and not local_seen[normalized] then
+                            local_seen[normalized] = true
+                            push_domain(normalized, weight)
+                            if #domains >= 8000 then
+                                return
+                            end
+                        end
+                    end
+                elseif type(v) == "table" then
+                    walk(v)
+                    if #domains >= 8000 then
+                        return
+                    end
+                end
+            end
+        elseif t == "string" then
+            local extracted = extract_domains_from_line(node)
+            for _, dval in ipairs(extracted) do
+                push_domain(dval, 1)
+                if #domains >= 8000 then
+                    return
+                end
+            end
+        end
+    end
+
+    walk(payload)
+    return domains
+end
+
+local function collect_domain_source()
+    local plugin_sources = {
+        { name = "openclash", path = "/tmp/openclash.log", command = "tail -n 6000 /tmp/openclash.log" },
+        { name = "passwall", path = "/tmp/log/passwall.log", command = "tail -n 6000 /tmp/log/passwall.log" },
+        { name = "passwall2", path = "/tmp/log/passwall2.log", command = "tail -n 6000 /tmp/log/passwall2.log" },
+        { name = "homeproxy", path = "/tmp/homeproxy.log", command = "tail -n 6000 /tmp/homeproxy.log" },
+        { name = "mihomo", path = "/tmp/mihomo.log", command = "tail -n 6000 /tmp/mihomo.log" },
+        { name = "sing-box", path = "/tmp/sing-box.log", command = "tail -n 6000 /tmp/sing-box.log" },
+    }
+
+    local merged = {}
+    local source_flags = {}
+    local max_merged = 16000
+
+    local function append_domains(source_name, domains)
+        if type(domains) ~= "table" or #domains == 0 or #merged >= max_merged then
+            return
+        end
+        source_flags[#source_flags + 1] = source_name
+        for _, dval in ipairs(domains) do
+            merged[#merged + 1] = dval
+            if #merged >= max_merged then
+                break
+            end
+        end
+    end
+
+    append_domains("appfilter", collect_domains_from_appfilter_visitlist())
+    for _, source in ipairs(plugin_sources) do
+        if #merged >= max_merged then
+            break
+        end
+        if path_exists(source.path) then
+            local domains = collect_domains_from_command(source.command)
+            if #domains > 0 then
+                append_domains(source.name, domains)
+            end
+        end
+    end
+
+    if #merged < max_merged then
+        local direct = collect_domains_from_command("logread | grep -iE 'dnsmasq|smartdns|openclash|passwall|mihomo|sing-box|appfilter' | tail -n 6000")
+        if #direct > 0 then
+            append_domains("logread", direct)
+        end
+    end
+
+    if #merged > 0 then
+        local merged_source = (#source_flags > 0) and table.concat(source_flags, "+") or "proxy-log"
+        return merged_source, merged
     end
 
     return "none", {}
@@ -439,7 +582,7 @@ end
 -- Local API: sysinfo
 -- =====================================================================
 
-local function api_sysinfo()
+local function build_sysinfo_data()
     local model = ""
     local boardinfo = util.ubus("system", "board", {})
     if type(boardinfo) == "table" and boardinfo.model then model = boardinfo.model end
@@ -514,10 +657,6 @@ local function api_sysinfo()
     local ustr       = read_line("/proc/uptime") or "0"
     local uptime_raw = math.floor(tonumber(ustr:match("^(%S+)")) or 0)
 
-    local lavg       = read_line("/proc/loadavg") or "0"
-    local load1      = tonumber(lavg:match("^(%S+)")) or 0
-    -- Keep cpuUsage from the delta sampler above; do not override with loadavg.
-
     local meminfo  = read_all("/proc/meminfo") or ""
     local mem      = {}
     for k, v in meminfo:gmatch("(%S+):%s+(%d+)") do
@@ -529,8 +668,7 @@ local function api_sysinfo()
 
     local hasSamba4 = path_exists("/usr/lib/lua/luci/controller/samba4.lua") or path_exists("/etc/config/samba4")
 
-    http.prepare_content("application/json")
-    http.write(jsonc.stringify({
+    return {
         hostname    = hostname,
         model       = model,
         firmware    = firmware,
@@ -541,14 +679,19 @@ local function api_sysinfo()
         cpuUsage    = cpuUsage,
         memUsage    = memUsage,
         samba       = hasSamba4,
-    }))
+    }
+end
+
+local function api_sysinfo()
+    http.prepare_content("application/json")
+    http.write(jsonc.stringify(build_sysinfo_data()))
 end
 
 -- =====================================================================
 -- Local API: netinfo
 -- =====================================================================
 
-local function api_netinfo()
+local function build_netinfo_data()
     local uci = require("luci.model.uci").cursor()
     local ok_uplink, uplink = pcall(resolve_uplink_status)
     if not ok_uplink or type(uplink) ~= "table" then
@@ -567,6 +710,10 @@ local function api_netinfo()
             dns = {},
             uptime = 0,
             gateway = read_default_route_gateway(),
+            link_up = false,
+            route_ready = default_dev ~= "",
+            probe_ok = false,
+            online_reason = default_dev ~= "" and "default-route" or "fallback",
         }
     end
 
@@ -578,8 +725,7 @@ local function api_netinfo()
         end
     end
 
-    http.prepare_content("application/json")
-    http.write(jsonc.stringify({
+    return {
         wanStatus          = uplink.online and "up" or "down",
         wanIp              = uplink.wan_ip,
         wanIpv6            = uplink.wan_ipv6,
@@ -592,14 +738,20 @@ local function api_netinfo()
         linkUp             = uplink.link_up,
         routeReady         = uplink.route_ready,
         probeOk            = uplink.probe_ok,
-    }))
+        onlineReason       = uplink.online_reason,
+    }
+end
+
+local function api_netinfo()
+    http.prepare_content("application/json")
+    http.write(jsonc.stringify(build_netinfo_data()))
 end
 
 -- =====================================================================
 -- Local API: traffic
 -- =====================================================================
 
-local function api_traffic()
+local function build_traffic_data()
     local wan   = util.ubus("network.interface.wan", "status") or {}
     local l3dev = wan.l3_device or wan.device or ""
 
@@ -621,15 +773,20 @@ local function api_traffic()
         rx = tonumber(read_line(base .. "rx_bytes") or "0") or 0
     end
 
+    return { tx_bytes = tx, rx_bytes = rx, interface = l3dev }
+end
+
+local function api_traffic()
+    local data = build_traffic_data()
     http.prepare_content("application/json")
-    http.write(jsonc.stringify({ tx_bytes = tx, rx_bytes = rx }))
+    http.write(jsonc.stringify({ tx_bytes = data.tx_bytes, rx_bytes = data.rx_bytes }))
 end
 
 -- =====================================================================
 -- Local API: devices
 -- =====================================================================
 
-local function api_devices()
+local function build_devices_data()
     local devices, seen = {}, {}
 
     local function guess_type(name)
@@ -678,18 +835,24 @@ local function api_devices()
         end
     end
 
+    return devices
+end
+
+local function api_devices()
     http.prepare_content("application/json")
-    http.write(jsonc.stringify(devices))
+    http.write(jsonc.stringify(build_devices_data()))
 end
 
 -- =====================================================================
 -- Local API: domains
 -- =====================================================================
 
-local function api_domains()
-    local result = { top = {}, recent = {} }
+local function collect_domain_activity(limit_top, limit_recent)
+    local result = { source = "none", top = {}, recent = {}, lines = {} }
     local source, lines = collect_domain_source()
     local counts = {}
+    result.source = source
+    result.lines = lines
 
     for i = 1, #lines do
         local d_val = lines[i]
@@ -699,7 +862,7 @@ local function api_domains()
     local sortable = {}
     for d_val, c in pairs(counts) do table.insert(sortable, {domain = d_val, count = c}) end
     table.sort(sortable, function(a, b) return a.count > b.count end)
-    for i = 1, math.min(10, #sortable) do table.insert(result.top, sortable[i]) end
+    for i = 1, math.min(limit_top or 10, #sortable) do table.insert(result.top, sortable[i]) end
 
     local seen_recent = {}
     for i = #lines, 1, -1 do
@@ -707,14 +870,225 @@ local function api_domains()
         if not seen_recent[d_val] then
             seen_recent[d_val] = true
             table.insert(result.recent, {domain = d_val, count = counts[d_val]})
-            if #result.recent >= 10 then break end
+            if #result.recent >= (limit_recent or 10) then break end
         end
     end
 
-    if #result.top == 0 and #result.recent == 0 then source = "none" end
+    if #result.top == 0 and #result.recent == 0 then result.source = "none" end
+    return result
+end
 
+local function build_domains_data()
+    local activity = collect_domain_activity(25, 25)
+    return { source = activity.source, top = activity.top, recent = activity.recent }
+end
+
+local function api_domains()
     http.prepare_content("application/json")
-    http.write(jsonc.stringify({ source = source, top = result.top, recent = result.recent }))
+    http.write(jsonc.stringify(build_domains_data()))
+end
+
+local DOMAIN_APP_RULES = {
+    { app = "YouTube", class = "video", patterns = { "youtube.com", "googlevideo.com", "ytimg.com" } },
+    { app = "Netflix", class = "video", patterns = { "netflix.com", "nflxvideo.net" } },
+    { app = "Bilibili", class = "video", patterns = { "bilibili.com", "bilivideo.com" } },
+    { app = "TikTok", class = "social", patterns = { "tiktok.com", "byteoversea.com", "musical.ly" } },
+    { app = "Douyin", class = "social", patterns = { "douyin.com", "douyincdn.com" } },
+    { app = "WeChat", class = "social", patterns = { "wechat.com", "weixin.qq.com", "qpic.cn" } },
+    { app = "QQ", class = "social", patterns = { "qq.com", "qzone.qq.com", "tencent.com" } },
+    { app = "Telegram", class = "social", patterns = { "telegram.org", "t.me" } },
+    { app = "Discord", class = "social", patterns = { "discord.com", "discord.gg" } },
+    { app = "GitHub", class = "developer", patterns = { "github.com", "githubusercontent.com" } },
+    { app = "Steam", class = "game", patterns = { "steampowered.com", "steamstatic.com" } },
+    { app = "PlayStation", class = "game", patterns = { "playstation.com", "psn" } },
+    { app = "Xbox", class = "game", patterns = { "xboxlive.com", "xbox.com" } },
+    { app = "Apple", class = "cloud", patterns = { "apple.com", "icloud.com", "mzstatic.com" } },
+    { app = "Google", class = "search", patterns = { "google.com", "gstatic.com", "googleapis.com" } },
+    { app = "Microsoft", class = "cloud", patterns = { "microsoft.com", "live.com", "office.com" } },
+}
+
+local function classify_domain_app(domain)
+    local dval = trim(domain):lower()
+    if dval == "" then
+        return nil, nil
+    end
+
+    for _, rule in ipairs(DOMAIN_APP_RULES) do
+        for _, pat in ipairs(rule.patterns) do
+            if dval:find(pat, 1, true) then
+                return rule.app, rule.class
+            end
+        end
+    end
+
+    return nil, nil
+end
+
+local function build_heuristic_apps(domain_activity)
+    local apps = {}
+    local by_key = {}
+
+    for idx, domain in ipairs(domain_activity.lines or {}) do
+        local app_name, app_class = classify_domain_app(domain)
+        if app_name then
+            local key = app_name .. "::" .. (app_class or "")
+            local entry = by_key[key]
+            if not entry then
+                entry = {
+                    id = 0,
+                    name = app_name,
+                    class = app_class or "",
+                    class_label = app_class or "",
+                    hits = 0,
+                    latest_idx = 0,
+                    source = "domain-heuristic",
+                }
+                by_key[key] = entry
+                apps[#apps + 1] = entry
+            end
+            entry.hits = entry.hits + 1
+            entry.latest_idx = idx
+        end
+    end
+
+    table.sort(apps, function(a, b)
+        if (a.hits or 0) == (b.hits or 0) then
+            return (a.latest_idx or 0) > (b.latest_idx or 0)
+        end
+        return (a.hits or 0) > (b.hits or 0)
+    end)
+
+    while #apps > 12 do
+        table.remove(apps)
+    end
+
+    return apps
+end
+
+local function build_oaf_status_data()
+    local ok, oaf = pcall(require, "luci.controller.api.oaf")
+    if ok and oaf and type(oaf.get_status_data) == "function" then
+        local ok_status, data = pcall(oaf.get_status_data)
+        if ok_status and type(data) == "table" then
+            return data
+        end
+    end
+
+    return {
+        success = false,
+        available = false,
+        engine = "",
+        current_version = "",
+        active_apps = {},
+        class_stats = {},
+    }
+end
+
+local function build_dashboard_databus()
+    local sysinfo = build_sysinfo_data()
+    local netinfo = build_netinfo_data()
+    local traffic = build_traffic_data()
+    local devices = build_devices_data()
+    local domain_activity = collect_domain_activity(20, 20)
+    local oaf_status = build_oaf_status_data()
+
+    local realtime_urls = {}
+    for i, item in ipairs(domain_activity.recent or {}) do
+        realtime_urls[#realtime_urls + 1] = {
+            rank = i,
+            domain = item.domain,
+            hits = item.count or 0,
+            source = domain_activity.source,
+        }
+    end
+
+    local online_apps = {}
+    local class_stats = {}
+    local recognition_source = "domain-heuristic"
+    local recognition_engine = "domain-heuristic"
+    local feature_version = ""
+
+    if type(oaf_status.active_apps) == "table" and #oaf_status.active_apps > 0 then
+        for _, app in ipairs(oaf_status.active_apps) do
+            online_apps[#online_apps + 1] = {
+                id = tonumber(app.id) or 0,
+                name = trim(app.name or ""),
+                class = trim(app.class or ""),
+                class_label = trim(app.class_label or app.class or ""),
+                devices = tonumber(app.devices or 0) or 0,
+                last_seen = tonumber(app.last_seen or 0) or 0,
+                icon = trim(app.icon or ""),
+                time = tonumber(app.time or 0) or 0,
+                source = "oaf",
+            }
+        end
+        class_stats = type(oaf_status.class_stats) == "table" and oaf_status.class_stats or {}
+        recognition_source = "oaf"
+        recognition_engine = trim(oaf_status.engine or "") ~= "" and trim(oaf_status.engine) or "OpenAppFilter"
+        feature_version = trim(oaf_status.current_version or "")
+    else
+        online_apps = build_heuristic_apps(domain_activity)
+    end
+
+    return {
+        code = 0,
+        timestamp = os.time(),
+        status = {
+            online = netinfo.wanStatus == "up",
+            internet = netinfo.wanStatus,
+            online_reason = netinfo.onlineReason,
+            link_up = netinfo.linkUp and true or false,
+            route_ready = netinfo.routeReady and true or false,
+            probe_ok = netinfo.probeOk and true or false,
+            conn_count = netinfo.connCount or 0,
+        },
+        system_status = sysinfo,
+        network_status = {
+            internet = netinfo.wanStatus == "up" and 0 or 1,
+            online_reason = netinfo.onlineReason,
+            interface = netinfo.interfaceName,
+            lan = {
+                ip = netinfo.lanIp,
+                dns = netinfo.dns,
+            },
+            wan = {
+                ip = netinfo.wanIp,
+                ipv6 = netinfo.wanIpv6,
+                gateway = netinfo.gateway,
+                dns = netinfo.dns,
+            },
+        },
+        interface_traffic = {
+            interface = traffic.interface or "",
+            tx_bytes = traffic.tx_bytes or 0,
+            rx_bytes = traffic.rx_bytes or 0,
+        },
+        realtime_urls = {
+            source = domain_activity.source,
+            total = #realtime_urls,
+            list = realtime_urls,
+        },
+        online_apps = {
+            total = #online_apps,
+            list = online_apps,
+        },
+        app_recognition = {
+            available = (recognition_source == "oaf") or (#online_apps > 0),
+            source = recognition_source,
+            engine = recognition_engine,
+            feature_version = feature_version,
+            class_stats = class_stats,
+        },
+        devices = {
+            total = #devices,
+            list = devices,
+        },
+    }
+end
+
+local function api_databus()
+    http.prepare_content("application/json")
+    http.write(jsonc.stringify(build_dashboard_databus()))
 end
 
 -- =====================================================================
@@ -727,6 +1101,9 @@ local LOCAL_API = {
     traffic = api_traffic,
     devices = api_devices,
     domains = api_domains,
+    databus = api_databus,
+    backend = api_databus,
+    common = api_databus,
     oaf     = function()
         local path = http.getenv("PATH_INFO") or ""
         local sub  = path:match("/dashboard/api/oaf/([^/?#]+)")

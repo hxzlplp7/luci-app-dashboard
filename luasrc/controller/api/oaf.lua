@@ -576,6 +576,10 @@ local function build_status_response()
     }
 end
 
+M.get_status_data = function()
+    return build_status_response()
+end
+
 M.action_status = function()
     http.prepare_content("application/json")
     http.write(json.stringify(build_status_response()))
