@@ -238,9 +238,9 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 flex-none shrink-0 h-[88px]">
-                    <button onclick="openAIAssistant()" class="bg-indigo-50 flex flex-col items-center justify-center rounded-xl shadow-sm border border-indigo-100 hover:border-indigo-300 hover:bg-indigo-100 text-indigo-600 transition-all w-full h-full cursor-pointer focus:outline-none">
-                        <i data-lucide="sparkles" class="w-5 h-5 mb-1.5"></i>
-                        <span class="text-xs font-bold leading-none">AI 诊断</span>
+                    <button onclick="window.location.href='/cgi-bin/luci/admin/system/admin'" class="bg-white flex flex-col items-center justify-center rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 hover:text-blue-600 transition-all text-gray-600 w-full h-full cursor-pointer focus:outline-none">
+                        <i data-lucide="key" class="w-5 h-5 mb-1.5"></i>
+                        <span class="text-xs font-medium leading-none">修改密码</span>
                     </button>
                     <button onclick="window.location.href='/cgi-bin/luci/admin/system'" class="bg-white flex flex-col items-center justify-center rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 hover:text-blue-600 transition-all text-gray-600 w-full h-full cursor-pointer focus:outline-none">
                         <i data-lucide="settings" class="w-5 h-5 mb-1.5"></i>
@@ -287,28 +287,6 @@
             </div>
         </div>
     </main>
-
-    <!-- AI 诊断 Modal (模态框) -->
-    <div id="aiModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#1e293b]/40 backdrop-blur-sm transition-opacity opacity-0 mx-0">
-        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 transform transition-transform scale-95 duration-300 relative max-h-[85vh] flex flex-col mx-4">
-            <button onclick="closeAIAssistant()" title="关闭诊断面板" aria-label="关闭诊断面板" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none bg-transparent border-0">
-                <i data-lucide="x" class="w-5 h-5 cursor-pointer"></i>
-            </button>
-            <h3 class="text-xl font-bold mb-2 flex items-center gap-2 text-indigo-600 shrink-0 m-0 mt-2">
-                ✨ Gemini 智能网络体检
-            </h3>
-            <p class="text-sm text-gray-500 mb-6 shrink-0 mt-2">正基于当前路由器的实时运行负载、连接数及热门域名进行 AI 健康分析。</p>
-            
-            <div id="aiLoading" class="hidden flex-col items-center justify-center py-10 flex-1">
-                <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-                <span class="text-gray-500 text-sm animate-pulse">正在呼叫 Gemini 进行多维度分析，请稍候...</span>
-            </div>
-
-            <div id="aiContent" class="overflow-y-auto flex-1 prose prose-slate prose-sm sm:prose-base max-w-none text-gray-700 pr-2">
-                <!-- AI 生成的内容将渲染在这里 -->
-            </div>
-        </div>
-    </div>
 </div>
 
 <script src="/luci-static/dashboard/dashboard.js"></script>
