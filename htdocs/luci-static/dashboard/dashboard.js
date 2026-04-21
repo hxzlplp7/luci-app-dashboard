@@ -14,6 +14,45 @@
     const DOMAIN_MAX_ROWS = 20;
     const CHART_TEXT_COLOR = '#5f6b7a';
     const CHART_GRID_COLOR = 'rgba(64, 89, 124, 0.18)';
+    const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const I18N = Object.assign({
+        uploadLabel: 'Upload',
+        downloadLabel: 'Download',
+        unknown: 'Unknown',
+        online: 'Online',
+        offline: 'Offline',
+        noOnlineDeviceData: 'No online device data',
+        noDomainActivity: 'No domain activity',
+        noActiveAppData: 'No active app data',
+        unavailable: 'Unavailable',
+        updateFeatureLibrary: 'Update Feature Library',
+        uploading: 'Uploading...',
+        updateSuccess: 'Update Success',
+        uploadFailed: 'Upload failed',
+        unknownError: 'Unknown error',
+        networkErrorWhileUploading: 'Network error while uploading.',
+        fileTooLarge: 'File is too large (max 32MB).',
+        unsupportedFileType: 'Unsupported file type. Use .bin or .zip',
+        reasonRouteIp: 'Route + IP',
+        reasonDefaultRoute: 'Default Route',
+        reasonIpPresent: 'IP Present',
+        reasonProbeOk: 'Probe Succeeded',
+        reasonNoRouteNoIp: 'No Route / No IP',
+        reasonFallback: 'Fallback',
+        shortDay: 'd',
+        shortHour: 'h',
+        shortMinute: 'm'
+    }, window.DASH_I18N || {});
+    const ONLINE_REASON_MAP = {
+        'route+ip': I18N.reasonRouteIp,
+        'route-tip': I18N.reasonRouteIp,
+        'default-route': I18N.reasonDefaultRoute,
+        'ip-present': I18N.reasonIpPresent,
+        'ip-tip': I18N.reasonIpPresent,
+        'probe-ok': I18N.reasonProbeOk,
+        'no-route-no-ip': I18N.reasonNoRouteNoIp,
+        fallback: I18N.reasonFallback
+    };
 
     let trafficChart = null;
     let appUsageChart = null;
@@ -50,13 +89,16 @@
     }
 
     function formatBytes(bytes) {
-        if (!Number.isFinite(bytes) || bytes <= 0) {
-            return '0 B';
+        const num = Number(bytes);
+        if (!Number.isFinite(num) || num <= 0) {
+            return `0 ${BYTE_UNITS[0]}`;
         }
-        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const idx = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-        const val = bytes / Math.pow(1024, idx);
-        return `${val.toFixed(val >= 100 ? 0 : val >= 10 ? 1 : 2)} ${units[idx]}`;
+        const idxRaw = Math.floor(Math.log(num) / Math.log(1024));
+        const idx = Number.isFinite(idxRaw) ? clamp(idxRaw, 0, BYTE_UNITS.length - 1) : 0;
+        const val = num / Math.pow(1024, idx);
+        const fixed = val >= 100 ? 0 : val >= 10 ? 1 : 2;
+        const unit = BYTE_UNITS[idx] || BYTE_UNITS[0];
+        return `${val.toFixed(fixed)} ${unit}`;
     }
 
     function formatUptime(seconds) {
@@ -67,7 +109,15 @@
         const days = Math.floor(s / 86400);
         const hours = Math.floor((s % 86400) / 3600);
         const mins = Math.floor((s % 3600) / 60);
-        return `${days > 0 ? `${days}d ` : ''}${hours}h ${mins}m`;
+        return `${days > 0 ? `${days}${I18N.shortDay} ` : ''}${hours}${I18N.shortHour} ${mins}${I18N.shortMinute}`;
+    }
+
+    function formatOnlineReason(rawReason) {
+        const key = String(rawReason || '').trim();
+        if (!key) {
+            return '';
+        }
+        return ONLINE_REASON_MAP[key] || key;
     }
 
     async function apiRequest(endpoint, base) {
@@ -94,22 +144,23 @@
         if (!el) {
             return;
         }
-        const reason = data && data.onlineReason ? ` (${data.onlineReason})` : '';
+        const reasonText = data && data.onlineReason ? formatOnlineReason(data.onlineReason) : '';
+        const reason = reasonText ? ` (${reasonText})` : '';
         if (!data) {
-            el.textContent = 'Unknown';
+            el.textContent = I18N.unknown;
             el.className = 'stat-value internet-pending';
             el.title = '';
             return;
         }
         if (data.wanStatus === 'up') {
-            el.textContent = `Online${reason}`;
+            el.textContent = `${I18N.online}${reason}`;
             el.className = 'stat-value internet-up';
-            el.title = data.onlineReason || '';
+            el.title = reasonText;
             return;
         }
-        el.textContent = `Offline${reason}`;
+        el.textContent = `${I18N.offline}${reason}`;
         el.className = 'stat-value internet-down';
-        el.title = data.onlineReason || '';
+        el.title = reasonText;
     }
 
     function updateGauge(ringId, textId, value) {
@@ -135,7 +186,7 @@
                 labels: trafficLabels,
                 datasets: [
                     {
-                        label: 'Upload',
+                        label: I18N.uploadLabel,
                         data: trafficUp,
                         borderColor: '#61a7ff',
                         backgroundColor: 'rgba(97,167,255,0.18)',
@@ -145,7 +196,7 @@
                         fill: true
                     },
                     {
-                        label: 'Download',
+                        label: I18N.downloadLabel,
                         data: trafficDown,
                         borderColor: '#29c677',
                         backgroundColor: 'rgba(41,198,119,0.16)',
@@ -313,7 +364,7 @@
             return;
         }
         if (!devices || !devices.length) {
-            body.innerHTML = '<tr><td colspan="3">No online device data</td></tr>';
+            body.innerHTML = `<tr><td colspan="3">${escapeHtml(I18N.noOnlineDeviceData)}</td></tr>`;
             return;
         }
         body.innerHTML = devices.map((dev) => {
@@ -364,7 +415,7 @@
         pushRows(recentList);
 
         if (!merged.length) {
-            list.innerHTML = '<div class="domain-row">No domain activity</div>';
+            list.innerHTML = `<div class="domain-row">${escapeHtml(I18N.noDomainActivity)}</div>`;
             setText('domain-source', data && data.source ? data.source : '-');
             return;
         }
@@ -409,7 +460,7 @@
             return;
         }
         if (!apps || !apps.length) {
-            box.innerHTML = '<div class="app-item"><div class="app-name">No active app data</div></div>';
+            box.innerHTML = `<div class="app-item"><div class="app-name">${escapeHtml(I18N.noActiveAppData)}</div></div>`;
             return;
         }
         box.innerHTML = apps.slice(0, 20).map((app) => {
@@ -428,7 +479,7 @@
     async function loadOafStatus() {
         const data = await apiRequest('status', API_OAF);
         if (!data || data.error || data.available === false) {
-            setText('oaf-version', 'Unavailable');
+            setText('oaf-version', I18N.unavailable);
             setText('oaf-engine', '-');
             setText('app-count', 0);
             renderActiveApps([]);
@@ -460,7 +511,7 @@
         const progress = byId('oaf-progress-container');
         if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Update Feature Library';
+            btn.textContent = I18N.updateFeatureLibrary;
         }
         if (bar) {
             bar.style.width = '0%';
@@ -477,11 +528,11 @@
         }
         const file = fileInput.files[0];
         if (file.size > OAF_MAX_SIZE) {
-            alert('File is too large (max 32MB).');
+            alert(I18N.fileTooLarge);
             return;
         }
         if (!/\.(bin|zip)$/i.test(file.name)) {
-            alert('Unsupported file type. Use .bin or .zip');
+            alert(I18N.unsupportedFileType);
             return;
         }
 
@@ -490,7 +541,7 @@
         const progress = byId('oaf-progress-container');
         if (btn) {
             btn.disabled = true;
-            btn.textContent = 'Uploading...';
+            btn.textContent = I18N.uploading;
         }
         if (progress) {
             progress.classList.remove('hidden');
@@ -522,18 +573,18 @@
             }
             if (xhr.status === 200 && payload.success) {
                 if (btn) {
-                    btn.textContent = 'Update Success';
+                    btn.textContent = I18N.updateSuccess;
                 }
                 setTimeout(() => window.location.reload(), 1200);
                 return;
             }
             resetUploadState();
-            alert(`Upload failed: ${payload.message || 'Unknown error'}`);
+            alert(`${I18N.uploadFailed}: ${payload.message || I18N.unknownError}`);
         };
 
         xhr.onerror = () => {
             resetUploadState();
-            alert('Network error while uploading.');
+            alert(I18N.networkErrorWhileUploading);
         };
 
         xhr.send(formData);

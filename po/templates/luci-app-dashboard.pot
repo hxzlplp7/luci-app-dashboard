@@ -6,161 +6,173 @@ msgstr ""
 msgid "Dashboard"
 msgstr ""
 
-msgid "Network Config"
+msgid "Internet Status"
 msgstr ""
 
-msgid "Network Interface"
+msgid "Checking..."
 msgstr ""
 
-msgid "Online Users"
+msgid "Online Devices"
 msgstr ""
 
-msgid "Traffic Monitoring"
+msgid "Connections"
 msgstr ""
 
-msgid "Network Interfaces"
+msgid "Total Download"
 msgstr ""
 
-msgid "Bandwidth Monitoring"
+msgid "Total Upload"
 msgstr ""
 
-msgid "Network Port Configuration"
+msgid "Traffic Statistics"
 msgstr ""
 
-msgid "Protocol (Network Acquisition Method)"
+msgid "Upload"
 msgstr ""
 
-msgid "DHCP Client"
+msgid "Download"
 msgstr ""
 
-msgid "PPPoE"
+msgid "Active Apps"
 msgstr ""
 
-msgid "Static Address"
+msgid "App Distribution"
 msgstr ""
 
-msgid "Dismiss"
+msgid "Hot Domains"
 msgstr ""
 
-msgid "Save"
+msgid "Online Device List"
 msgstr ""
 
-msgid "Delete"
+msgid "Name"
 msgstr ""
 
-msgid "Edit"
+msgid "IP Address"
 msgstr ""
 
-msgid "Save & Apply"
+msgid "Status"
 msgstr ""
 
-msgid "Intranet"
+msgid "System Information"
 msgstr ""
 
-msgid "DNS Server"
+msgid "Hostname"
 msgstr ""
 
-msgid "Disk"
-msgstr ""
-
-msgid "File Manager"
-msgstr ""
-
-msgid "Quick Config"
-msgstr ""
-
-msgid "Mount Points"
-msgstr ""
-
-msgid "Disk Manager"
-msgstr ""
-
-msgid "Getting disk information..."
-msgstr ""
-
-msgid "System Root Directory"
-msgstr ""
-
-msgid "Mounted Disk"
-msgstr ""
-
-msgid "Disconnected"
-msgstr ""
-
-msgid "Intranet Configuration"
-msgstr ""
-
-msgid "Only count mounted partitions"
-msgstr ""
-
-msgid "Not partitioned"
-msgstr ""
-
-msgid "Unformatted"
-msgstr ""
-
-msgid "No mounted"
-msgstr ""
-
-msgid "System partition"
-msgstr ""
-
-msgid "Manual mount"
-msgstr ""
-
-msgid "Partition and format"
-msgstr ""
-
-msgid "Format Partition"
-msgstr ""
-
-msgid "Manual Mount"
-msgstr ""
-
-msgid "Partition Information"
-msgstr ""
-
-msgid "Exit"
-msgstr ""
-
-msgid "Up"
-msgstr ""
-
-msgid "Down"
-msgstr ""
-
-msgid "Read only"
-msgstr ""
-
-msgid "Read and write"
+msgid "Model"
 msgstr ""
 
 msgid "Firmware"
 msgstr ""
 
-msgid "View network interface information"
+msgid "Kernel"
 msgstr ""
 
-msgid "Hard Disk Configuration"
+msgid "Uptime"
 msgstr ""
 
-msgid "Mount Disk Configuration"
+msgid "Runtime Status"
 msgstr ""
 
-msgid "Full disk format"
+msgid "CPU"
 msgstr ""
 
-msgid "Partition information"
+msgid "Memory"
 msgstr ""
 
-msgid "S.M.A.R.T Exception"
+msgid "Network"
 msgstr ""
 
-msgid "Current status:"
+msgid "LAN IP"
 msgstr ""
 
-msgid "Address"
+msgid "WAN IP"
 msgstr ""
 
-msgid "Directory"
+msgid "Gateway"
+msgstr ""
+
+msgid "Interface"
+msgstr ""
+
+msgid "Temperature"
+msgstr ""
+
+msgid "Version"
+msgstr ""
+
+msgid "Engine"
+msgstr ""
+
+msgid "Update Feature Library"
+msgstr ""
+
+msgid "Unknown"
+msgstr ""
+
+msgid "Online"
+msgstr ""
+
+msgid "Offline"
+msgstr ""
+
+msgid "No online device data"
+msgstr ""
+
+msgid "No domain activity"
+msgstr ""
+
+msgid "No active app data"
+msgstr ""
+
+msgid "Unavailable"
+msgstr ""
+
+msgid "Uploading..."
+msgstr ""
+
+msgid "Update Success"
+msgstr ""
+
+msgid "Upload failed"
+msgstr ""
+
+msgid "Unknown error"
+msgstr ""
+
+msgid "Network error while uploading."
+msgstr ""
+
+msgid "File is too large (max 32MB)."
+msgstr ""
+
+msgid "Unsupported file type. Use .bin or .zip"
+msgstr ""
+
+msgid "Route + IP"
+msgstr ""
+
+msgid "Default Route"
+msgstr ""
+
+msgid "IP Present"
+msgstr ""
+
+msgid "Probe Succeeded"
+msgstr ""
+
+msgid "No Route / No IP"
+msgstr ""
+
+msgid "Fallback"
+msgstr ""
+
+msgid "d"
+msgstr ""
+
+msgid "h"
+msgstr ""
+
+msgid "m"
 msgstr ""

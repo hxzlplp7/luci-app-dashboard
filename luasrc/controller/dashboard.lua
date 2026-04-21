@@ -524,6 +524,13 @@ local function collect_domains_from_appfilter_visitlist()
 end
 
 local function collect_domain_source()
+    local dns_file_sources = {
+        { name = "dnsmasq", path = "/tmp/dnsmasq.log", command = "tail -n 6000 /tmp/dnsmasq.log" },
+        { name = "smartdns", path = "/tmp/smartdns.log", command = "tail -n 6000 /tmp/smartdns.log" },
+        { name = "adguardhome", path = "/tmp/AdGuardHome.log", command = "tail -n 6000 /tmp/AdGuardHome.log" },
+        { name = "mosdns", path = "/tmp/mosdns.log", command = "tail -n 6000 /tmp/mosdns.log" },
+    }
+
     local plugin_sources = {
         { name = "openclash", path = "/tmp/openclash.log", command = "tail -n 6000 /tmp/openclash.log" },
         { name = "passwall", path = "/tmp/log/passwall.log", command = "tail -n 6000 /tmp/log/passwall.log" },
@@ -537,20 +544,51 @@ local function collect_domain_source()
     local source_flags = {}
     local max_merged = 16000
 
-    local function append_domains(source_name, domains)
+    local function append_domains(source_name, domains, cap)
         if type(domains) ~= "table" or #domains == 0 or #merged >= max_merged then
             return
         end
         source_flags[#source_flags + 1] = source_name
+        local max_take = tonumber(cap) or #domains
+        if max_take < 1 then
+            return
+        end
+        local taken = 0
         for _, dval in ipairs(domains) do
             merged[#merged + 1] = dval
+            taken = taken + 1
             if #merged >= max_merged then
+                break
+            end
+            if taken >= max_take then
                 break
             end
         end
     end
 
-    append_domains("appfilter", collect_domains_from_appfilter_visitlist())
+    append_domains("appfilter", collect_domains_from_appfilter_visitlist(), 8000)
+
+    for _, source in ipairs(dns_file_sources) do
+        if #merged >= max_merged then
+            break
+        end
+        if path_exists(source.path) then
+            local domains = collect_domains_from_command(source.command)
+            if #domains > 0 then
+                append_domains(source.name, domains, 3000)
+            end
+        end
+    end
+
+    if #merged < max_merged then
+        local dns_logread = collect_domains_from_command(
+            "logread | grep -iE 'dnsmasq|smartdns|adguardhome|mosdns|unbound|pdnsd|chinadns' | tail -n 8000"
+        )
+        if #dns_logread > 0 then
+            append_domains("logread-dns", dns_logread, 6000)
+        end
+    end
+
     for _, source in ipairs(plugin_sources) do
         if #merged >= max_merged then
             break
@@ -558,15 +596,17 @@ local function collect_domain_source()
         if path_exists(source.path) then
             local domains = collect_domains_from_command(source.command)
             if #domains > 0 then
-                append_domains(source.name, domains)
+                append_domains(source.name, domains, 3000)
             end
         end
     end
 
-    if #merged < max_merged then
-        local direct = collect_domains_from_command("logread | grep -iE 'dnsmasq|smartdns|openclash|passwall|mihomo|sing-box|appfilter' | tail -n 6000")
-        if #direct > 0 then
-            append_domains("logread", direct)
+    if #merged == 0 then
+        local proxy_logread = collect_domains_from_command(
+            "logread | grep -iE 'openclash|passwall|mihomo|sing-box|homeproxy|appfilter' | tail -n 6000"
+        )
+        if #proxy_logread > 0 then
+            append_domains("logread-proxy", proxy_logread, 6000)
         end
     end
 

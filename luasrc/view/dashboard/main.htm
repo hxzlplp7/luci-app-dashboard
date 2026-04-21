@@ -109,7 +109,7 @@
                             <circle class="gauge-ring cpu-ring" cx="50" cy="50" r="34" id="cpu-ring"></circle>
                         </svg>
                         <div class="gauge-value" id="cpu-text">0%</div>
-                        <div class="gauge-label">CPU</div>
+                        <div class="gauge-label"><%:CPU%></div>
                     </div>
                     <div class="gauge-box">
                         <svg viewBox="0 0 100 100" class="gauge-svg">
@@ -125,8 +125,8 @@
             <section class="mini-card">
                 <h4><%:Network%></h4>
                 <div class="kv">
-                    <div>LAN IP</div><div id="lan-ip">-</div>
-                    <div>WAN IP</div><div id="wan-ip">-</div>
+                    <div><%:LAN IP%></div><div id="lan-ip">-</div>
+                    <div><%:WAN IP%></div><div id="wan-ip">-</div>
                     <div><%:Gateway%></div><div id="gateway">-</div>
                     <div><%:Interface%></div><div id="interface-name">-</div>
                 </div>
@@ -135,7 +135,7 @@
             <section class="mini-card">
                 <h4><%:Temperature%></h4>
                 <div class="temp-line">
-                    <span>CPU</span>
+                    <span><%:CPU%></span>
                     <span id="cpu-temp">-</span>
                 </div>
                 <div class="meter">
@@ -161,5 +161,35 @@
     </div>
 </div>
 
+<script type="text/javascript">
+window.DASH_I18N = {
+    uploadLabel: '<%:Upload%>',
+    downloadLabel: '<%:Download%>',
+    unknown: '<%:Unknown%>',
+    online: '<%:Online%>',
+    offline: '<%:Offline%>',
+    noOnlineDeviceData: '<%:No online device data%>',
+    noDomainActivity: '<%:No domain activity%>',
+    noActiveAppData: '<%:No active app data%>',
+    unavailable: '<%:Unavailable%>',
+    updateFeatureLibrary: '<%:Update Feature Library%>',
+    uploading: '<%:Uploading...%>',
+    updateSuccess: '<%:Update Success%>',
+    uploadFailed: '<%:Upload failed%>',
+    unknownError: '<%:Unknown error%>',
+    networkErrorWhileUploading: '<%:Network error while uploading.%>',
+    fileTooLarge: '<%:File is too large (max 32MB).%>',
+    unsupportedFileType: '<%:Unsupported file type. Use .bin or .zip%>',
+    reasonRouteIp: '<%:Route + IP%>',
+    reasonDefaultRoute: '<%:Default Route%>',
+    reasonIpPresent: '<%:IP Present%>',
+    reasonProbeOk: '<%:Probe Succeeded%>',
+    reasonNoRouteNoIp: '<%:No Route / No IP%>',
+    reasonFallback: '<%:Fallback%>',
+    shortDay: '<%:d%>',
+    shortHour: '<%:h%>',
+    shortMinute: '<%:m%>'
+};
+</script>
 <script src="/luci-static/dashboard/dashboard.js"></script>
 <%+footer%>
