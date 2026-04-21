@@ -1,688 +1,388 @@
-(function(window, document) {
-    'use strict';
+        lucide.createIcons();
 
-    const rawPath = window.location.pathname.replace(/\/api(\/.*)?$/, '');
-    const pathMatch = rawPath.match(/(.+\/admin\/dashboard)/);
-    const API_BASE = pathMatch ? pathMatch[1] + '/api' : '';
-    const API_OAF = API_BASE ? API_BASE + '/oaf' : '';
-    const LUCI_TOKEN = (window.L && L.env && L.env.token) ? L.env.token : '';
+        // --- Gemini AI 诊断逻辑 ---
+        const apiKey = ""; // 建议用户自行填入或走后端代理
 
-    const MAX_TRAFFIC_POINTS = 50;
-    const RING_CIRCUMFERENCE = 213.63;
-    const OAF_MAX_SIZE = 32 * 1024 * 1024;
-    const HOT_DOMAIN_REFRESH_INTERVAL = 5000;
-    const REALTIME_DOMAIN_REFRESH_INTERVAL = 2000;
-    const DOMAIN_MAX_ROWS = 20;
-    const CHART_TEXT_COLOR = '#5f6b7a';
-    const CHART_GRID_COLOR = 'rgba(64, 89, 124, 0.18)';
-    const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const I18N = Object.assign({
-        uploadLabel: 'Upload',
-        downloadLabel: 'Download',
-        unknown: 'Unknown',
-        online: 'Online',
-        offline: 'Offline',
-        noOnlineDeviceData: 'No online device data',
-        noDomainActivity: 'No domain activity',
-        noActiveAppData: 'No active app data',
-        unavailable: 'Unavailable',
-        updateFeatureLibrary: 'Update Feature Library',
-        uploading: 'Uploading...',
-        updateSuccess: 'Update Success',
-        uploadFailed: 'Upload failed',
-        unknownError: 'Unknown error',
-        networkErrorWhileUploading: 'Network error while uploading.',
-        fileTooLarge: 'File is too large (max 32MB).',
-        unsupportedFileType: 'Unsupported file type. Use .bin or .zip',
-        reasonRouteIp: 'Route + IP',
-        reasonDefaultRoute: 'Default Route',
-        reasonIpPresent: 'IP Present',
-        reasonProbeOk: 'Probe Succeeded',
-        reasonNoRouteNoIp: 'No Route / No IP',
-        reasonFallback: 'Fallback',
-        shortDay: 'd',
-        shortHour: 'h',
-        shortMinute: 'm'
-    }, window.DASH_I18N || {});
-    const ONLINE_REASON_MAP = {
-        'route+ip': I18N.reasonRouteIp,
-        'route-tip': I18N.reasonRouteIp,
-        'default-route': I18N.reasonDefaultRoute,
-        'ip-present': I18N.reasonIpPresent,
-        'ip-tip': I18N.reasonIpPresent,
-        'probe-ok': I18N.reasonProbeOk,
-        'no-route-no-ip': I18N.reasonNoRouteNoIp,
-        fallback: I18N.reasonFallback
-    };
+        async function fetchGeminiWithRetry(prompt, retries = 5) {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: {
+                    parts: [{
+                        text: "你是一个专业的家庭网络和高级路由器诊断专家。请根据用户提供的路由器实时状态面板数据，用通俗、专业的中文输出一份简短的【网络健康报告】。报告结构如下：1. 总体评价（网络是否健康） 2. 异常诊断（重点分析异常高频域名、CPU或流量） 3. 极客优化建议。要求：排版清晰，使用Markdown列表，并在每个重点结论旁加上适合的Emoji表情。字数控制在300字以内。"
+                    }]
+                }
+            };
 
-    let trafficChart = null;
-    let appUsageChart = null;
-    const trafficUp = [];
-    const trafficDown = [];
-    const trafficLabels = [];
-    let domainRequestInFlight = false;
-    let prevTx = 0;
-    let prevRx = 0;
-    let prevAt = 0;
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload)
+                    });
 
-    function byId(id) {
-        return document.getElementById(id);
-    }
-
-    function setText(id, value) {
-        const el = byId(id);
-        if (el) {
-            el.textContent = (value === undefined || value === null || value === '') ? '-' : String(value);
+                    if (!response.ok) throw new Error(`HTTP 异常! 状态码: ${response.status}`);
+                    const data = await response.json();
+                    return data.candidates[0].content.parts[0].text;
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
         }
-    }
 
-    function escapeHtml(str) {
-        if (!str) {
-            return '';
+        async function openAIAssistant() {
+            if (!apiKey) {
+                alert("未配置 Gemini API Key，请在 dashboard.js 中填写。");
+                return;
+            }
+            const modal = document.getElementById('aiModal');
+            const loading = document.getElementById('aiLoading');
+            const content = document.getElementById('aiContent');
+            
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0');
+            modal.firstElementChild.classList.remove('scale-95');
+            modal.classList.add('flex');
+
+            content.innerHTML = '';
+            loading.classList.remove('hidden');
+            loading.classList.add('flex');
+
+            const domainsListText = domainData.top && domainData.top.length > 0 
+                ? domainData.top.slice(0, 5).map((d, i) => `${i + 1}. ${d.domain} (请求量: ${d.count}次)`).join('\n                  ')
+                : '暂无数据';
+
+            const systemPrompt = `
+                【当前路由器状态数据】
+                - 在线设备数：${document.getElementById('active-device-count').innerText}台
+                - 当前WAN IP：${document.getElementById('wan-ip').innerText}
+                - 实时速率：上传 ${document.getElementById('total-up').innerText}，下载 ${document.getElementById('total-down').innerText}
+                - CPU 占用率：${document.getElementById('cpu-text').innerText}
+                - 内存占用率：${document.getElementById('mem-text').innerText}
+                - 热门访问域名Top 5：
+                  ${domainsListText}
+            `;
+
+            try {
+                const resultText = await fetchGeminiWithRetry(systemPrompt);
+                content.innerHTML = marked.parse(resultText);
+            } catch (error) {
+                content.innerHTML = `<div class="bg-red-50 text-red-600 p-4 rounded-lg border border-red-100"><p class="font-bold mb-1">获取诊断结果失败</p><p class="text-sm">网络请求或解析时发生错误，请稍后再试。</p></div>`;
+            } finally {
+                loading.classList.add('hidden');
+                loading.classList.remove('flex');
+            }
         }
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
 
-    function clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
-    function formatBytes(bytes) {
-        const num = Number(bytes);
-        if (!Number.isFinite(num) || num <= 0) {
-            return `0 ${BYTE_UNITS[0]}`;
+        function closeAIAssistant() {
+            const modal = document.getElementById('aiModal');
+            modal.classList.add('opacity-0');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }, 300);
         }
-        const idxRaw = Math.floor(Math.log(num) / Math.log(1024));
-        const idx = Number.isFinite(idxRaw) ? clamp(idxRaw, 0, BYTE_UNITS.length - 1) : 0;
-        const val = num / Math.pow(1024, idx);
-        const fixed = val >= 100 ? 0 : val >= 10 ? 1 : 2;
-        const unit = BYTE_UNITS[idx] || BYTE_UNITS[0];
-        return `${val.toFixed(fixed)} ${unit}`;
-    }
+        // --- 诊断逻辑结束 ---
 
-    function formatUptime(seconds) {
-        const s = Number(seconds);
-        if (!Number.isFinite(s) || s <= 0) {
-            return '-';
-        }
-        const days = Math.floor(s / 86400);
-        const hours = Math.floor((s % 86400) / 3600);
-        const mins = Math.floor((s % 3600) / 60);
-        return `${days > 0 ? `${days}${I18N.shortDay} ` : ''}${hours}${I18N.shortHour} ${mins}${I18N.shortMinute}`;
-    }
+        const getApiBase = () => {
+            const h = window.location.pathname;
+            return h.includes('/admin/') ? h.split('/admin/')[0] + '/admin/dashboard/api' : '/cgi-bin/luci/admin/dashboard/api';
+        };
 
-    function formatOnlineReason(rawReason) {
-        const key = String(rawReason || '').trim();
-        if (!key) {
-            return '';
-        }
-        return ONLINE_REASON_MAP[key] || key;
-    }
+        const getMockData = (endpoint) => {
+            let mockTx = 1024 * 1024 * 50;
+            let mockRx = 1024 * 1024 * 300;
+            switch(endpoint) {
+                case 'netinfo': return { wanStatus: 'up', wanIp: '100.64.12.34', lanIp: '192.168.100.1', dns: ['202.103.24.68', '202.103.44.150'], network_uptime_raw: 445800, publicIp: '1.2.3.4', publicCountry: 'Local' };
+                case 'sysinfo': return { model: '纯离线预览(假数据)', firmware: 'iStoreOS 24.10.2', kernel: '6.6.93', temp: 40, systime_raw: Math.floor(Date.now() / 1000), uptime_raw: 84942, cpuUsage: 3, memUsage: 12, hasSamba4: false };
+                case 'traffic': mockTx += Math.floor(Math.random() * 2000000); mockRx += Math.floor(Math.random() * 15000000); return { tx_bytes: mockTx, rx_bytes: mockRx };
+                case 'devices': return [
+                    { mac: 'AA:BB:CC:DD:EE:FF', ip: '192.168.100.101', name: 'iPhone-13', type: 'mobile', active: true },
+                    { mac: '11:22:33:44:55:66', ip: '192.168.100.105', name: 'MacBook-Pro', type: 'laptop', active: true },
+                    { mac: '22:33:44:55:66:77', ip: '192.168.100.120', name: 'Smart-TV', type: 'other', active: false }
+                ];
+                case 'domains': return { 
+                    source: 'mock', 
+                    top: [ { domain: 'daemon.info', count: 2514 }, { domain: 'apple.com', count: 201 } ],
+                    realtime: [ { domain: 'baidu.com', count: 12 }, { domain: 'github.com', count: 843 } ]
+                };
+                case 'apps': return [
+                    { name: '美团', color: 'bg-yellow-400', text: '美', textColor: 'text-black' },
+                    { name: '微信', color: 'bg-green-500', icon: 'message-circle', textColor: 'text-white' }
+                ];
+                default: return null;
+            }
+        };
 
-    async function apiRequest(endpoint, base) {
-        const root = base || API_BASE;
-        if (!root) {
-            return null;
-        }
-        try {
-            const response = await fetch(`${root}/${endpoint}`, {
-                credentials: 'same-origin',
-                cache: 'no-store'
-            });
-            if (!response.ok) {
+        async function apiRequest(ep) {
+            const hostname = window.location.hostname || '';
+            const protocol = window.location.protocol || '';
+            const isLocalHtml = protocol === 'file:' || protocol === 'blob:' || hostname === 'localhost' || hostname === '' || hostname.includes('usercontent');
+            const isLuciEnv = window.location.pathname.includes('/admin/');
+
+            if (isLocalHtml && !isLuciEnv) return getMockData(ep);
+
+            try {
+                const API_BASE = getApiBase();
+                const url = `${API_BASE}/${ep}?t=${Date.now()}`;
+                const res = await fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            } catch (e) {
+                console.error(`[API Error] ${ep}:`, e.message);
                 return null;
             }
-            return await response.json();
-        } catch (error) {
-            return null;
         }
-    }
 
-    function setInternetStatus(data) {
-        const el = byId('internet-status');
-        if (!el) {
-            return;
+        // 标签友好化函数
+        function formatSourceLabel(raw) {
+            if (!raw || raw === 'none' || raw === '-') return '-';
+            const SOURCE_MAP = {
+                'conntrack+dnsmasq': 'conntrack', 'dnsmasq-logread': 'dnsmasq',
+                'logread-dns': 'logread', 'logread-proxy': 'proxy', 'appfilter': 'appfilter',
+                'smartdns': 'smartdns', 'adguardhome': 'AdGuardHome', 'mosdns': 'mosdns',
+                'openclash': 'openclash', 'passwall': 'passwall', 'passwall2': 'passwall2',
+                'homeproxy': 'homeproxy', 'mihomo': 'mihomo', 'sing-box': 'sing-box'
+            };
+            if (SOURCE_MAP[raw]) return SOURCE_MAP[raw];
+            for (const key of Object.keys(SOURCE_MAP)) if (raw.indexOf(key) !== -1) return SOURCE_MAP[key];
+            return raw.length > 20 ? raw.slice(0, 20) + '…' : raw;
         }
-        const reasonText = data && data.onlineReason ? formatOnlineReason(data.onlineReason) : '';
-        const reason = reasonText ? ` (${reasonText})` : '';
-        if (!data) {
-            el.textContent = I18N.unknown;
-            el.className = 'stat-value internet-pending';
-            el.title = '';
-            return;
-        }
-        if (data.wanStatus === 'up') {
-            el.textContent = `${I18N.online}${reason}`;
-            el.className = 'stat-value internet-up';
-            el.title = reasonText;
-            return;
-        }
-        el.textContent = `${I18N.offline}${reason}`;
-        el.className = 'stat-value internet-down';
-        el.title = reasonText;
-    }
 
-    function updateGauge(ringId, textId, value) {
-        const ring = byId(ringId);
-        const text = byId(textId);
-        const pct = clamp(Number(value) || 0, 0, 100);
-        if (text) {
-            text.textContent = `${Math.round(pct)}%`;
+        function formatBytes(b) {
+            if (!b || b === 0) return '0 B';
+            const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(b) / Math.log(k));
+            return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
-        if (ring) {
-            ring.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - pct / 100));
-        }
-    }
 
-    function initTrafficChart() {
-        const canvas = byId('trafficChart');
-        if (!canvas || !window.Chart) {
-            return;
+        function formatUptime(s) {
+            if (!s || s <= 0) return '-';
+            const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+            return `${d > 0 ? d + 'd ' : ''}${h}h ${m}m`;
         }
-        trafficChart = new Chart(canvas.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: trafficLabels,
-                datasets: [
-                    {
-                        label: I18N.uploadLabel,
-                        data: trafficUp,
-                        borderColor: '#61a7ff',
-                        backgroundColor: 'rgba(97,167,255,0.18)',
-                        pointRadius: 0,
-                        borderWidth: 2,
-                        tension: 0.35,
-                        fill: true
-                    },
-                    {
-                        label: I18N.downloadLabel,
-                        data: trafficDown,
-                        borderColor: '#29c677',
-                        backgroundColor: 'rgba(41,198,119,0.16)',
-                        pointRadius: 0,
-                        borderWidth: 2,
-                        tension: 0.35,
-                        fill: true
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        display: false
-                    },
-                    y: {
-                        ticks: {
-                            color: CHART_TEXT_COLOR,
-                            callback: (value) => formatBytes(value)
-                        },
-                        grid: {
-                            color: CHART_GRID_COLOR
-                        }
-                    }
-                }
+
+        function formatSysTime(unixSeconds) {
+            const d = new Date(unixSeconds * 1000);
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+        }
+
+        let sysUptimeGlobal = 0, netUptimeGlobal = 0, sysTimeGlobal = 0;
+        setInterval(() => {
+            if (sysUptimeGlobal > 0) document.getElementById('sys-uptime').innerText = 'UP: ' + formatUptime(++sysUptimeGlobal);
+            if (netUptimeGlobal > 0) document.getElementById('network-uptime').innerText = formatUptime(++netUptimeGlobal);
+            if (sysTimeGlobal > 0) document.getElementById('sys-time').innerText = formatSysTime(++sysTimeGlobal);
+        }, 1000);
+
+        async function loadStaticInfo() {
+            const net = await apiRequest('netinfo');
+            if (net) {
+                document.getElementById('wan-ip').innerText = net.wanIp || '-';
+                document.getElementById('lan-ip').innerText = net.lanIp || '-';
+                document.getElementById('gateway').innerText = net.gateway || '-';
+                document.getElementById('internet-status-text').innerText = net.wanStatus === 'up' ? (net.wanIp ? '外网畅通' : '线路就绪') : '外网断开';
+                document.getElementById('internet-status-desc').innerText = net.onlineReason ? net.onlineReason : '-';
+                if(document.getElementById('summary-connections') && net.connCount) document.getElementById('summary-connections').innerText = net.connCount;
+
+                document.getElementById('dns-servers').innerHTML = net.dns && net.dns.length > 0 ? net.dns.join(' ') : '-';
+                netUptimeGlobal = net.network_uptime_raw;
+                if(net.wanStatus === 'up') document.getElementById('wan-status-dot').classList.remove('hidden');
             }
-        });
-    }
 
-    function initAppUsageChart() {
-        const canvas = byId('appUsageChart');
-        if (!canvas || !window.Chart) {
-            return;
-        }
-        appUsageChart = new Chart(canvas.getContext('2d'), {
-            type: 'doughnut',
-            data: {
-                labels: [],
-                datasets: [
-                    {
-                        data: [],
-                        backgroundColor: [
-                            '#61a7ff',
-                            '#29c677',
-                            '#38d6d9',
-                            '#ff9b54',
-                            '#ffd166',
-                            '#ef476f'
-                        ],
-                        borderWidth: 0
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '66%',
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            color: CHART_TEXT_COLOR,
-                            boxWidth: 11,
-                            boxHeight: 11,
-                            font: { size: 11 }
-                        }
-                    }
-                }
+            const sys = await apiRequest('sysinfo');
+            if (sys) {
+                document.getElementById('sys-model').innerText = sys.model || '-';
+                document.getElementById('sys-firmware').innerText = sys.firmware || '-';
+                sysUptimeGlobal = sys.uptime_raw;
+                sysTimeGlobal = sys.systime_raw;
+                updateCpuMem(sys);
             }
-        });
-    }
-
-    async function refreshTraffic() {
-        const data = await apiRequest('traffic');
-        if (!data) {
-            return;
-        }
-        const now = Date.now();
-        const tx = Number(data.tx_bytes) || 0;
-        const rx = Number(data.rx_bytes) || 0;
-
-        setText('stat-total-up', formatBytes(tx));
-        setText('stat-total-down', formatBytes(rx));
-
-        if (!prevAt) {
-            prevTx = tx;
-            prevRx = rx;
-            prevAt = now;
-            return;
         }
 
-        const deltaSec = Math.max((now - prevAt) / 1000, 1);
-        const upRate = Math.max(0, (tx - prevTx) / deltaSec);
-        const downRate = Math.max(0, (rx - prevRx) / deltaSec);
-
-        setText('wan-up-rate', `${formatBytes(upRate)}/s`);
-        setText('wan-down-rate', `${formatBytes(downRate)}/s`);
-
-        prevTx = tx;
-        prevRx = rx;
-        prevAt = now;
-
-        if (!trafficChart) {
-            return;
+        function updateCpuMem(s) {
+            document.getElementById('cpu-text').innerText = s.cpuUsage + '%';
+            document.getElementById('cpu-bar').style.width = s.cpuUsage + '%';
+            document.getElementById('cpu-temp').innerText = s.temp > 0 ? s.temp + '℃' : '-';
+            const tb = document.getElementById('temp-bar');
+            const tv = s.temp || 0;
+            tb.style.width = Math.min(tv, 100) + '%';
+            tb.className = `h-1.5 rounded-full transition-all duration-500 ${tv > 75 ? 'bg-red-500' : (tv > 55 ? 'bg-orange-500' : 'bg-green-500')}`;
+            document.getElementById('mem-text').innerText = s.memUsage + '%';
+            const mb = document.getElementById('mem-bar');
+            mb.style.width = s.memUsage + '%';
+            mb.className = `h-1.5 rounded-full transition-all duration-500 ${s.memUsage > 85 ? 'bg-red-500' : 'bg-green-500'}`;
         }
 
-        trafficLabels.push('');
-        trafficUp.push(upRate);
-        trafficDown.push(downRate);
+        async function loadDevices() {
+            const devs = await apiRequest('devices');
+            if (!devs) return;
+            const activeCount = devs.filter(d => d.active).length;
+            document.getElementById('active-device-count').innerText = activeCount;
+            if (document.getElementById('summary-devices')) document.getElementById('summary-devices').innerText = activeCount;
 
-        if (trafficLabels.length > MAX_TRAFFIC_POINTS) {
-            trafficLabels.shift();
-            trafficUp.shift();
-            trafficDown.shift();
-        }
-
-        trafficChart.update('none');
-    }
-
-    async function loadSysInfo() {
-        const data = await apiRequest('sysinfo');
-        if (!data) {
-            return;
-        }
-
-        setText('sys-hostname', data.hostname || '-');
-        setText('sys-model', data.model || '-');
-        setText('sys-firmware', data.firmware || '-');
-        setText('sys-kernel', data.kernel || '-');
-        setText('sys-uptime', formatUptime(data.uptime_raw));
-
-        updateGauge('cpu-ring', 'cpu-text', Number(data.cpuUsage) || 0);
-        updateGauge('mem-ring', 'mem-text', Number(data.memUsage) || 0);
-
-        const temp = Number(data.temp) || 0;
-        setText('cpu-temp', temp > 0 ? `${temp} C` : '-');
-        const tempBar = byId('temp-bar');
-        if (tempBar) {
-            tempBar.style.width = `${clamp(temp, 0, 100)}%`;
-        }
-    }
-
-    async function loadNetInfo() {
-        const data = await apiRequest('netinfo');
-        setInternetStatus(data);
-        if (!data) {
-            return;
-        }
-        setText('lan-ip', data.lanIp || '-');
-        setText('wan-ip', data.wanIp || '-');
-        setText('gateway', data.gateway || '-');
-        setText('interface-name', data.interfaceName || '-');
-        setText('dns-servers', Array.isArray(data.dns) && data.dns.length ? data.dns.join(' ') : '-');
-        setText('network-uptime', formatUptime(data.network_uptime_raw));
-        setText('conn-count', Number(data.connCount) || 0);
-    }
-
-    function renderDevices(devices) {
-        const list = byId('devices-list');
-        if (!list) {
-            return;
-        }
-        const tag = String(list.tagName || '').toLowerCase();
-        const tableMode = tag === 'tbody';
-        if (!devices || !devices.length) {
-            if (tableMode) {
-                list.innerHTML = `<tr><td colspan="3">${escapeHtml(I18N.noOnlineDeviceData)}</td></tr>`;
-            } else {
-                list.innerHTML = `<div class="empty-line">${escapeHtml(I18N.noOnlineDeviceData)}</div>`;
-            }
-            return;
-        }
-
-        if (tableMode) {
-            list.innerHTML = devices.map((dev) => {
-                const name = escapeHtml(dev.name || dev.mac || '-');
-                const ip = escapeHtml(dev.ip || '-');
-                const dotClass = dev.active ? 'status-dot' : 'status-dot off';
-                return `<tr><td title="${name}">${name}</td><td>${ip}</td><td><span class="${dotClass}"></span></td></tr>`;
-            }).join('');
-            return;
-        }
-
-        list.innerHTML = devices.map((dev) => {
-            const rawName = dev.name || dev.mac || '-';
-            const name = escapeHtml(rawName);
-            const ip = escapeHtml(dev.ip || '-');
-            const dotClass = dev.active ? 'status-dot' : 'status-dot off';
-            const type = String(dev.type || '').toLowerCase();
-            const icon = type === 'mobile' ? 'smartphone' : (type === 'other' ? 'monitor' : 'laptop');
-            return `
-                <div class="device-row" title="${name}">
-                    <div class="device-meta">
-                        <i data-lucide="${icon}" class="device-icon"></i>
-                        <span class="device-name">${name}</span>
+            document.getElementById('devices-list').innerHTML = devs.map(d => `
+                <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
+                    <div class="flex items-center space-x-2">
+                        <div class="${d.active ? 'text-blue-500' : 'text-gray-300'}"><i data-lucide="${d.type === 'mobile' ? 'smartphone' : 'laptop'}" class="w-4 h-4"></i></div>
+                        <div>
+                            <div class="text-xs font-medium ${d.active ? 'text-gray-800' : 'text-gray-400'}">${d.name || d.mac}</div>
+                            <div class="text-[10px] text-gray-400 font-mono">${d.ip}</div>
+                        </div>
                     </div>
-                    <span class="device-ip">${ip}</span>
-                    <span class="${dotClass}"></span>
-                </div>
-            `;
-        }).join('');
-        if (window.lucide && typeof window.lucide.createIcons === 'function') {
-            window.lucide.createIcons();
+                </div>`).join('');
+            lucide.createIcons(); 
         }
-    }
 
-    async function loadDevices() {
-        const data = await apiRequest('devices');
-        if (!Array.isArray(data)) {
-            renderDevices([]);
-            setText('active-device-count', 0);
-            return;
-        }
-        const activeCount = data.filter((dev) => !!dev.active).length;
-        setText('active-device-count', activeCount);
-        renderDevices(data.slice(0, 16));
-    }
+        let domainData = { top: [], recent: [], realtime: [] };
+        async function loadDomains() {
+            const res = await apiRequest('domains');
+            if (res) domainData = res;
+            
+            document.getElementById('domain-source').innerText = formatSourceLabel(domainData.source);
+            document.getElementById('realtime-domain-source').innerText = formatSourceLabel(domainData.realtime_source);
 
-    function normalizeDomainRows(rows) {
-        const merged = [];
-        const seen = new Set();
-        (Array.isArray(rows) ? rows : []).forEach((item) => {
-            const domain = String((item && item.domain) || '').trim();
-            if (!domain || seen.has(domain)) {
-                return;
-            }
-            seen.add(domain);
-            merged.push({
-                domain,
-                count: Number(item.count) || 0
-            });
-        });
-        return merged;
-    }
-
-    function renderDomainRows(targetId, rows, emptyText) {
-        const list = byId(targetId);
-        if (!list) {
-            return;
-        }
-        const realtimeMode = targetId === 'realtime-domains-list';
-        if (!rows.length) {
-            list.innerHTML = `<div class="empty-line">${escapeHtml(emptyText)}</div>`;
-            return;
-        }
-        if (realtimeMode) {
-            list.innerHTML = rows.slice(0, DOMAIN_MAX_ROWS).map((item) => {
-                const name = escapeHtml(item.domain || '-');
-                const count = Number(item.count) || 0;
+            // 渲染 热门域名
+            const topList = domainData.top || [];
+            const maxTopCount = topList.reduce((max, item) => Math.max(max, item.count), 0);
+            document.getElementById('top-domains-list').innerHTML = topList.slice(0, 10).map((item) => {
+                const percent = maxTopCount > 0 ? (item.count / maxTopCount) * 100 : 0;
                 return `
-                    <div class="realtime-row">
-                        <span class="realtime-left">
-                            <span class="realtime-dot"></span>
-                            <span class="realtime-domain" title="${name}">${name}</span>
-                        </span>
-                        <span class="realtime-count">${count}</span>
+                <div class="mb-3 px-1 group cursor-default">
+                    <div class="flex justify-between text-xs mb-1.5">
+                        <span class="text-gray-600 truncate max-w-[75%] font-mono group-hover:text-blue-600 transition-colors">${item.domain}</span>
+                        <span class="text-gray-800 font-medium">${item.count}</span>
                     </div>
-                `;
-            }).join('');
-            return;
+                    <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="bg-blue-400 h-full rounded-full transition-all duration-700" style="width: ${percent}%"></div>
+                    </div>
+                </div>`;
+            }).join('') || '<div class="text-center text-gray-400 text-xs mt-4">暂无数据</div>';
+
+            // 渲染 实时域名
+            const rtList = domainData.realtime && domainData.realtime.length > 0 ? domainData.realtime : (domainData.recent || []);
+            document.getElementById('recent-domains-list').innerHTML = rtList.slice(0, 25).map((item) => `
+                <div class="flex items-center justify-between px-2 py-1.5 hover:bg-teal-50 rounded-md group transition-colors">
+                    <div class="flex items-center space-x-2 truncate">
+                        <div class="w-1.5 h-1.5 rounded-full bg-gray-300 group-hover:bg-teal-400"></div>
+                        <div class="text-[11px] text-gray-600 truncate font-mono">${item.domain}</div>
+                    </div>
+                    <div class="text-[10px] text-gray-400 font-mono">${item.count}ms</div>
+                </div>`).join('') || '<div class="text-center text-gray-400 text-xs mt-4">暂无活动</div>';
         }
-        const max = Math.max(1, Number(rows[0].count) || 1);
-        list.innerHTML = rows.slice(0, DOMAIN_MAX_ROWS).map((item) => {
-            const name = escapeHtml(item.domain || '-');
-            const count = Number(item.count) || 0;
-            const pct = Math.round((count / max) * 100);
-            return `
-                <div class="domain-row">
-                    <div class="domain-meta">
-                        <span class="domain-name" title="${name}">${name}</span>
-                        <span class="domain-count">${count}</span>
+
+        const OAF_COLORS = ['bg-orange-500','bg-green-500','bg-blue-500','bg-pink-500','bg-yellow-400','bg-indigo-500'];
+        async function loadActiveApps() {
+            // 通过获取原有 OAF 接口数据兼容活跃应用展示
+            const oafData = await apiRequest('oaf/status');
+            const appsElement = document.getElementById('active-apps-container');
+            const cntElement = document.getElementById('app-count');
+            
+            if (oafData && oafData.active_apps && oafData.active_apps.length > 0) {
+                const apps = oafData.active_apps;
+                if (cntElement) cntElement.innerText = apps.length;
+                appsElement.innerHTML = apps.slice(0, 12).map((app, i) => {
+                    const color = OAF_COLORS[i % OAF_COLORS.length];
+                    const iconHtml = app.icon 
+                        ? `<img src="${app.icon}" class="w-8 h-8 rounded-lg" alt="${app.name}">` 
+                        : `<span class="text-white text-lg font-bold">${app.name.charAt(0)}</span>`;
+                        
+                    return `
+                    <div class="flex flex-col items-center gap-2 cursor-pointer group">
+                        <div class="w-12 h-12 rounded-[14px] ${color} flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:-translate-y-1">
+                            ${iconHtml}
+                        </div>
+                        <span class="text-[11px] font-medium text-gray-500 group-hover:text-gray-800 transition-colors w-14 text-center truncate">${app.name}</span>
                     </div>
-                    <div class="domain-track"><div class="domain-fill" data-pct="${pct}"></div></div>
-                </div>
-            `;
-        }).join('');
-        list.querySelectorAll('.domain-fill').forEach((el) => {
-            const pct = Number(el.getAttribute('data-pct')) || 0;
-            el.style.width = `${pct}%`;
+                `}).join('');
+            } else {
+                if (cntElement) cntElement.innerText = "0";
+                appsElement.innerHTML = '<div class="w-full text-center text-gray-400 text-xs mt-4">无活跃应用或未开启 OAF</div>';
+            }
+            
+            // 更新应用分布饼图，兼容 OAF 的分类耗时数据
+            if (typeof donutChart !== 'undefined' && oafData && oafData.class_stats && oafData.class_stats.length > 0) {
+                donutChart.setOption({
+                    series: [{
+                        data: oafData.class_stats.map(s => ({ name: s.name, value: Number(s.time) || 0 }))
+                    }]
+                });
+            }
+        }
+
+        // 初始化图表
+        const lineChart = echarts.init(document.getElementById('traffic-line-chart'));
+        lineChart.setOption({
+            tooltip: { trigger: 'axis', backgroundColor: 'rgba(255, 255, 255, 0.95)', textStyle: { color: '#1e293b' }, formatter: function (p) {
+                let r = `<div style="font-weight:bold;margin-bottom:4px;color:#475569;">${p[0].axisValue}</div>`;
+                p.forEach(x => { r += `<div style="display:flex;align-items:center;margin-top:2px;"><span style="display:inline-block;margin-right:5px;border-radius:10px;width:9px;height:9px;background-color:${x.color};"></span><span style="margin-right:12px;color:#64748b;">${x.seriesName}:</span><span style="font-family:monospace;font-weight:500;color:#1e293b;">${formatBytes(x.value)}/s</span></div>`; });
+                return r;
+            }}, 
+            legend: { data: ['Down', 'Up'], top: 0, itemWidth: 10, textStyle: { color: '#64748b' } },
+            grid: { left: '1%', right: '2%', bottom: '0%', top: '15%', containLabel: true },
+            xAxis: { type: 'category', boundaryGap: false, data: [], axisLine: { lineStyle: { color: '#cbd5e1' } }, axisLabel: { color: '#64748b' } },
+            yAxis: { type: 'value', axisLabel: { formatter: (v) => formatBytes(v) + '/s', fontSize: 9, color: '#64748b' }, splitLine: { lineStyle: { color: '#e2e8f0', type: 'dashed' } } },
+            series: [{ name: 'Down', type: 'line', smooth: true, symbol: 'none', itemStyle: { color: '#3b82f6' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(59, 130, 246, 0.3)' }, { offset: 1, color: 'rgba(59, 130, 246, 0.01)' }]) }, data: [] },
+                     { name: 'Up', type: 'line', smooth: true, symbol: 'none', itemStyle: { color: '#10b981' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(16, 185, 129, 0.3)' }, { offset: 1, color: 'rgba(16, 185, 129, 0.01)' }]) }, data: [] }]
         });
-    }
 
-    function renderDomains(data, mode) {
-        const topList = data && Array.isArray(data.top) ? data.top : [];
-        const recentList = data && Array.isArray(data.recent) ? data.recent : [];
-        const realtimeList = data && Array.isArray(data.realtime) ? data.realtime : [];
+        // 环形图 (应用分布)
+        const donutChart = echarts.init(document.getElementById('app-dist-chart'));
+        donutChart.setOption({
+            tooltip: { trigger: 'item' },
+            color: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#cbd5e1'],
+            series: [{
+                name: '应用分布',
+                type: 'pie',
+                radius: ['55%', '85%'],
+                avoidLabelOverlap: false,
+                itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
+                label: { show: false, position: 'center' },
+                emphasis: { label: { show: true, fontSize: 18, fontWeight: 'bold', formatter: '{d}%' } },
+                labelLine: { show: false },
+                data: [{ value: 100, name: '等待统计数据' }]
+            }]
+        });
 
-        if (mode !== 'realtime') {
-            const hotRows = normalizeDomainRows(topList.concat(recentList));
-            renderDomainRows('domains-list', hotRows, I18N.noDomainActivity);
-            setText('domain-source', data && data.source ? data.source : '-');
-        }
+        window.addEventListener('resize', () => { lineChart.resize(); donutChart.resize(); });
 
-        const realtimeRows = normalizeDomainRows(realtimeList);
-        renderDomainRows('realtime-domains-list', realtimeRows, I18N.noDomainActivity);
-        setText('realtime-domain-source', data && data.realtime_source ? data.realtime_source : '-');
-    }
-
-    async function loadDomains(mode) {
-        if (domainRequestInFlight) {
-            return;
-        }
-        domainRequestInFlight = true;
-        try {
-            const data = await apiRequest(`domains?_=${Date.now()}`);
-            renderDomains(data, mode || 'all');
-        } finally {
-            domainRequestInFlight = false;
-        }
-    }
-
-    function renderActiveApps(apps) {
-        const box = byId('oaf-apps-list');
-        if (!box) {
-            return;
-        }
-        if (!apps || !apps.length) {
-            box.innerHTML = `<div class="app-item"><div class="app-name">${escapeHtml(I18N.noActiveAppData)}</div></div>`;
-            return;
-        }
-        box.innerHTML = apps.slice(0, 20).map((app) => {
-            const name = escapeHtml(app.name || '-');
-            const icon = app.icon ? escapeHtml(app.icon) : '';
-            const iconHtml = icon
-                ? `<img class="app-icon" src="${icon}" alt="${name}">`
-                : '<div class="app-icon"><i data-lucide="globe" class="w-4 h-4"></i></div>';
-            return `<div class="app-item" title="${name}">${iconHtml}<div class="app-name">${name}</div></div>`;
-        }).join('');
-        if (window.lucide && typeof window.lucide.createIcons === 'function') {
-            window.lucide.createIcons();
-        }
-    }
-
-    async function loadOafStatus() {
-        const data = await apiRequest('status', API_OAF);
-        if (!data || data.error || data.available === false) {
-            setText('oaf-version', I18N.unavailable);
-            setText('oaf-engine', '-');
-            setText('app-count', 0);
-            renderActiveApps([]);
-            if (appUsageChart) {
-                appUsageChart.data.labels = [];
-                appUsageChart.data.datasets[0].data = [];
-                appUsageChart.update();
-            }
-            return;
-        }
-
-        setText('oaf-version', data.current_version || '-');
-        setText('oaf-engine', data.engine || '-');
-
-        const activeApps = Array.isArray(data.active_apps) ? data.active_apps : [];
-        setText('app-count', activeApps.length);
-        renderActiveApps(activeApps);
-
-        if (appUsageChart && Array.isArray(data.class_stats)) {
-            appUsageChart.data.labels = data.class_stats.map((item) => item.name || '-');
-            appUsageChart.data.datasets[0].data = data.class_stats.map((item) => Number(item.time) || 0);
-            appUsageChart.update();
-        }
-    }
-
-    function resetUploadState() {
-        const btn = byId('oaf-upload-btn');
-        const bar = byId('oaf-bar');
-        const progress = byId('oaf-progress-container');
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = I18N.updateFeatureLibrary;
-        }
-        if (bar) {
-            bar.style.width = '0%';
-        }
-        if (progress) {
-            progress.classList.add('hidden');
-        }
-    }
-
-    function uploadOafFeature() {
-        const fileInput = byId('oaf-file-input');
-        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-            return;
-        }
-        const file = fileInput.files[0];
-        if (file.size > OAF_MAX_SIZE) {
-            alert(I18N.fileTooLarge);
-            return;
-        }
-        if (!/\.(bin|zip)$/i.test(file.name)) {
-            alert(I18N.unsupportedFileType);
-            return;
-        }
-
-        const btn = byId('oaf-upload-btn');
-        const bar = byId('oaf-bar');
-        const progress = byId('oaf-progress-container');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = I18N.uploading;
-        }
-        if (progress) {
-            progress.classList.remove('hidden');
-        }
-        if (bar) {
-            bar.style.width = '0%';
-        }
-
-        const formData = new FormData();
-        formData.append('token', LUCI_TOKEN);
-        formData.append('file', file);
-
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${API_OAF}/upload?token=${encodeURIComponent(LUCI_TOKEN)}`, true);
-
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable && bar) {
-                const pct = Math.round((event.loaded / event.total) * 100);
-                bar.style.width = `${pct}%`;
-            }
-        };
-
-        xhr.onload = () => {
-            let payload = {};
-            try {
-                payload = JSON.parse(xhr.responseText || '{}');
-            } catch (error) {
-                payload = {};
-            }
-            if (xhr.status === 200 && payload.success) {
-                if (btn) {
-                    btn.textContent = I18N.updateSuccess;
+        let tD = [], dD = [], uD = [], pTx = 0, pRx = 0, pT = 0;
+        async function refresh() {
+            const sys = await apiRequest('sysinfo');
+            if(sys) updateCpuMem(sys);
+            const tr = await apiRequest('traffic');
+            if (tr) {
+                const now = Date.now();
+                if (pT !== 0) {
+                    const diff = (now - pT) / 1000;
+                    if (diff > 0) {
+                        const uS = Math.max(0, (tr.tx_bytes - pTx) / diff);
+                        const dS = Math.max(0, (tr.rx_bytes - pRx) / diff);
+                        const tm = new Date().toTimeString().split(' ')[0];
+                        tD.push(tm); dD.push(dS); uD.push(uS);
+                        if (tD.length > 20) { tD.shift(); dD.shift(); uD.shift(); }
+                        lineChart.setOption({ xAxis: { data: tD }, series: [{ data: dD }, { data: uD }] });
+                    }
                 }
-                setTimeout(() => window.location.reload(), 1200);
-                return;
+                
+                const fmtTx = formatBytes(tr.tx_bytes).split(' ');
+                const fmtRx = formatBytes(tr.rx_bytes).split(' ');
+                if(document.getElementById('summary-tx')) document.getElementById('summary-tx').innerText = fmtTx[0];
+                if(document.getElementById('summary-tx-unit')) document.getElementById('summary-tx-unit').innerText = fmtTx[1];
+                if(document.getElementById('summary-rx')) document.getElementById('summary-rx').innerText = fmtRx[0];
+                if(document.getElementById('summary-rx-unit')) document.getElementById('summary-rx-unit').innerText = fmtRx[1];
+
+                document.getElementById('total-up').innerText = formatBytes(uD.length ? uD[uD.length-1] : 0) + '/s';
+                document.getElementById('total-down').innerText = formatBytes(dD.length ? dD[dD.length-1] : 0) + '/s';
+
+                pTx = tr.tx_bytes; pRx = tr.rx_bytes; pT = now;
             }
-            resetUploadState();
-            alert(`${I18N.uploadFailed}: ${payload.message || I18N.unknownError}`);
-        };
-
-        xhr.onerror = () => {
-            resetUploadState();
-            alert(I18N.networkErrorWhileUploading);
-        };
-
-        xhr.send(formData);
-    }
-
-    function init() {
-        initTrafficChart();
-        initAppUsageChart();
-
-        const uploadBtn = byId('oaf-upload-btn');
-        if (uploadBtn) {
-            uploadBtn.addEventListener('click', uploadOafFeature);
         }
 
-        if (window.lucide && typeof window.lucide.createIcons === 'function') {
-            window.lucide.createIcons();
-        }
-
-        refreshTraffic();
-        loadSysInfo();
-        loadNetInfo();
-        loadDevices();
-        loadDomains('all');
-        loadOafStatus();
-
-        window.setInterval(refreshTraffic, 3000);
-        window.setInterval(loadSysInfo, 10000);
-        window.setInterval(loadNetInfo, 12000);
-        window.setInterval(loadDevices, 15000);
-        window.setInterval(() => loadDomains('all'), HOT_DOMAIN_REFRESH_INTERVAL);
-        window.setInterval(() => loadDomains('realtime'), REALTIME_DOMAIN_REFRESH_INTERVAL);
-        window.setInterval(loadOafStatus, 60000);
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
-})(window, document);
+        loadStaticInfo(); loadDevices(); loadDomains(); loadActiveApps(); refresh();
+        setInterval(refresh, 2000); setInterval(loadDomains, 5000); setInterval(loadActiveApps, 15000);

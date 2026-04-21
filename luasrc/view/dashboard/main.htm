@@ -1,225 +1,315 @@
 <%+header%>
-<link rel="stylesheet" href="/luci-static/dashboard/dashboard.css">
-<script src="/luci-static/dashboard/chart.js"></script>
-<script src="/luci-static/dashboard/lucide.js"></script>
+<script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+<script>
+    tailwind.config = {
+        corePlugins: {
+            // 禁止 tailwind 的全局 reset 样式污染 LuCI 主题
+            preflight: false,
+        }
+    }
+</script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-<div class="dash-page">
-    <div class="dash-shell">
-        <section class="top-stats">
-            <div class="stat-card">
-                <div class="stat-head">
-                    <span class="stat-label"><%:Internet Status%></span>
-                    <i data-lucide="check-circle-2" class="stat-icon good"></i>
+<!-- 添加一点基础样式避免 preflight:false 导致的展示异常 -->
+<style>
+    .dash-tailwind-scope * {
+        box-sizing: border-box;
+    }
+    .dash-tailwind-scope button {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+    }
+</style>
+
+<div class="dash-tailwind-scope bg-[#f4f6f8] font-sans text-gray-800 min-h-screen -mx-4 -mt-4 p-4">
+    <main class="max-w-[1400px] mx-auto p-2 mt-2 flex flex-col gap-6">
+
+        <!-- 顶部核心数据概览 -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 lg:gap-6 flex-none">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-center transition-all hover:shadow-md">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-gray-500">网络状态</span>
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-green-500"></i>
                 </div>
-                <div class="stat-value internet-up" id="internet-status"><%:Checking...%></div>
+                <div class="flex items-end gap-2">
+                    <span class="text-xl font-bold text-gray-800" id="internet-status-text">检查中</span>
+                </div>
+                <span class="text-xs text-gray-400 mt-1" id="internet-status-desc">等待数据...</span>
             </div>
-            <div class="stat-card">
-                <div class="stat-head">
-                    <span class="stat-label"><%:Online Devices%></span>
-                    <i data-lucide="users" class="stat-icon blue"></i>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-center transition-all hover:shadow-md">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-gray-500">在线设备</span>
+                    <i data-lucide="users" class="w-4 h-4 text-blue-500"></i>
                 </div>
-                <div class="stat-value" id="active-device-count">0</div>
+                <div class="flex items-end gap-1">
+                    <span class="text-2xl font-bold text-gray-800" id="summary-devices">0</span>
+                    <span class="text-sm text-gray-400 mb-1">台</span>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-head">
-                    <span class="stat-label"><%:Connections%></span>
-                    <i data-lucide="link" class="stat-icon indigo"></i>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-center transition-all hover:shadow-md">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-gray-500">当前连接</span>
+                    <i data-lucide="link" class="w-4 h-4 text-indigo-500"></i>
                 </div>
-                <div class="stat-value" id="conn-count">0</div>
+                <div class="flex items-end gap-1">
+                    <span class="text-2xl font-bold text-gray-800" id="summary-connections">0</span>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-head">
-                    <span class="stat-label"><%:Total Download%></span>
-                    <i data-lucide="download" class="stat-icon blue"></i>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-center transition-all hover:shadow-md">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-gray-500">总计下载</span>
+                    <i data-lucide="download" class="w-4 h-4 text-blue-500"></i>
                 </div>
-                <div class="stat-value" id="stat-total-down">0 B</div>
+                <div class="flex items-end gap-1">
+                    <span class="text-2xl font-bold text-gray-800" id="summary-rx">0</span>
+                    <span class="text-sm text-gray-400 mb-1" id="summary-rx-unit">B</span>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-head">
-                    <span class="stat-label"><%:Total Upload%></span>
-                    <i data-lucide="upload" class="stat-icon green"></i>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col justify-center transition-all hover:shadow-md">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-medium text-gray-500">总计上传</span>
+                    <i data-lucide="upload" class="w-4 h-4 text-emerald-500"></i>
                 </div>
-                <div class="stat-value" id="stat-total-up">0 B</div>
+                <div class="flex items-end gap-1">
+                    <span class="text-2xl font-bold text-gray-800" id="summary-tx">0</span>
+                    <span class="text-sm text-gray-400 mb-1" id="summary-tx-unit">B</span>
+                </div>
             </div>
-        </section>
+        </div>
 
-        <section class="row-main">
-            <article class="panel network-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="globe" class="head-icon blue"></i><span><%:Network%></span></span></h3>
+        <!-- 第一排：网络接口状态 + 实时流量 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-none">
+            <div class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full min-h-[220px]">
+                <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2 flex-none">
+                    <i data-lucide="globe" class="text-blue-500 w-[18px] h-[18px]"></i>
+                    <h2 class="font-medium text-gray-700 m-0">网络接口状态</h2>
                 </div>
-                <div class="kv-list">
-                    <div class="kv-row">
-                        <span><%:WAN IP%></span>
-                        <strong id="wan-ip">-</strong>
+                <div class="p-5 flex-1 flex flex-col justify-evenly space-y-3">
+                    <div class="flex justify-between items-center">
+                        <div class="text-sm text-gray-500">WAN口 IP</div>
+                        <div class="font-medium text-gray-800 flex items-center" id="wan-container">
+                            <span id="wan-status-dot" class="w-2 h-2 rounded-full bg-green-500 mr-2 shadow-[0_0_8px_rgba(34,197,94,0.6)] hidden"></span>
+                            <span id="wan-ip">-</span>
+                        </div>
                     </div>
-                    <div class="kv-row">
-                        <span><%:LAN IP%></span>
-                        <strong id="lan-ip">-</strong>
+                    <div class="flex justify-between items-center">
+                        <div class="text-sm text-gray-500">局域网 IP</div>
+                        <div class="font-medium text-gray-800" id="lan-ip">-</div>
                     </div>
-                    <div class="kv-row">
-                        <span><%:Gateway%></span>
-                        <strong id="gateway">-</strong>
+                    <div class="flex justify-between items-center">
+                        <div class="text-sm text-gray-500">网关</div>
+                        <div class="font-medium text-gray-800" id="gateway">-</div>
                     </div>
-                    <div class="kv-row">
-                        <span><%:Interface%></span>
-                        <strong id="interface-name">-</strong>
+                    <div class="flex justify-between items-start">
+                        <div class="text-sm text-gray-500">DNS<span class="text-xs ml-1">(自动)</span></div>
+                        <div class="font-medium text-gray-800 text-right text-xs" id="dns-servers">-</div>
                     </div>
-                    <div class="kv-row">
-                        <span><%:DNS%></span>
-                        <strong id="dns-servers">-</strong>
-                    </div>
-                </div>
-                <div class="online-tip">
-                    <span><%:Uptime%></span>
-                    <span id="network-uptime">-</span>
-                </div>
-            </article>
-
-            <article class="panel traffic-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="activity" class="head-icon blue"></i><span><%:Traffic Statistics%></span></span></h3>
-                    <div class="rate-badge">
-                        <span><%:Download%>: <strong id="wan-down-rate">0 B/s</strong></span>
-                        <span><%:Upload%>: <strong id="wan-up-rate">0 B/s</strong></span>
+                    <div class="flex justify-between items-center border-t border-gray-50 pt-2">
+                        <div class="text-xs text-gray-500 flex items-center">
+                            <i data-lucide="activity" class="w-[12px] h-[12px] mr-1"></i> 已联网
+                        </div>
+                        <div class="text-xs font-medium text-blue-600 font-mono m-0" id="network-uptime">-</div>
                     </div>
                 </div>
-                <div class="traffic-wrap">
-                    <canvas id="trafficChart"></canvas>
-                </div>
-            </article>
-        </section>
+            </div>
 
-        <section class="row-apps">
-            <article class="panel app-dist-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="pie-chart" class="head-icon orange"></i><span><%:App Distribution%></span></span></h3>
-                </div>
-                <div class="pie-wrap">
-                    <canvas id="appUsageChart"></canvas>
-                </div>
-            </article>
-
-            <article class="panel active-app-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="layout-grid" class="head-icon pink"></i><span><%:Active Apps%></span></span></h3>
-                    <span class="sub-num" id="app-count">0</span>
-                </div>
-                <div class="app-grid" id="oaf-apps-list"></div>
-            </article>
-
-            <article class="panel hot-domain-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="bar-chart-2" class="head-icon indigo"></i><span><%:Hot Domains%></span></span></h3>
-                    <span class="sub-note" id="domain-source">-</span>
-                </div>
-                <div class="domain-list" id="domains-list"></div>
-            </article>
-        </section>
-
-        <section class="row-bottom">
-            <article class="panel devices-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="users" class="head-icon blue"></i><span><%:Online Device List%></span></span></h3>
-                </div>
-                <div class="devices-list" id="devices-list"></div>
-            </article>
-
-            <article class="panel realtime-domain-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="link" class="head-icon teal"></i><span><%:Realtime Domains%></span></span></h3>
-                    <span class="sub-note" id="realtime-domain-source">-</span>
-                </div>
-                <div class="domain-list domain-list-compact" id="realtime-domains-list"></div>
-            </article>
-        </section>
-
-        <section class="row-extra">
-            <article class="panel system-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="cpu" class="head-icon purple"></i><span><%:System Information%></span></span></h3>
-                </div>
-                <div class="sys-grid">
-                    <div class="sys-item"><span><%:Hostname%></span><strong id="sys-hostname">-</strong></div>
-                    <div class="sys-item"><span><%:Model%></span><strong id="sys-model">-</strong></div>
-                    <div class="sys-item"><span><%:Firmware%></span><strong id="sys-firmware">-</strong></div>
-                    <div class="sys-item"><span><%:Kernel%></span><strong id="sys-kernel">-</strong></div>
-                    <div class="sys-item"><span><%:Uptime%></span><strong id="sys-uptime">-</strong></div>
-                </div>
-                <div class="gauge-row">
-                    <div class="gauge-box">
-                        <svg viewBox="0 0 100 100" class="gauge-svg">
-                            <circle class="gauge-bg" cx="50" cy="50" r="34"></circle>
-                            <circle class="gauge-ring cpu-ring" cx="50" cy="50" r="34" id="cpu-ring"></circle>
-                        </svg>
-                        <div class="gauge-value" id="cpu-text">0%</div>
-                        <div class="gauge-label">CPU</div>
+            <div class="lg:col-span-8 bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative overflow-hidden flex flex-col h-full min-h-[300px]">
+                <div class="flex items-center justify-between mb-2 flex-none">
+                    <div class="flex items-center space-x-2">
+                        <i data-lucide="activity" class="text-blue-500 w-[18px] h-[18px]"></i>
+                        <h2 class="font-medium text-gray-700 m-0">实时网络流量</h2>
                     </div>
-                    <div class="gauge-box">
-                        <svg viewBox="0 0 100 100" class="gauge-svg">
-                            <circle class="gauge-bg" cx="50" cy="50" r="34"></circle>
-                            <circle class="gauge-ring mem-ring" cx="50" cy="50" r="34" id="mem-ring"></circle>
-                        </svg>
-                        <div class="gauge-value" id="mem-text">0%</div>
-                        <div class="gauge-label"><%:Memory%></div>
+                    <div class="text-[10px] text-gray-500 flex space-x-4 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <div><span class="text-blue-500 mr-1">↓</span>下载: <span id="total-down" class="text-blue-600 font-mono font-medium">0 B/s</span></div>
+                        <div><span class="text-emerald-500 mr-1">↑</span>上传: <span id="total-up" class="text-emerald-600 font-mono font-medium">0 B/s</span></div>
                     </div>
                 </div>
-                <div class="temp-line">
-                    <span><%:Temperature%></span>
-                    <span id="cpu-temp">-</span>
-                </div>
-                <div class="meter"><div class="bar" id="temp-bar"></div></div>
-            </article>
+                <div class="w-full flex-1" id="traffic-line-chart"></div>
+            </div>
+        </div>
 
-            <article class="panel oaf-panel">
-                <div class="panel-head">
-                    <h3><span class="head-with-icon"><i data-lucide="shield" class="head-icon teal"></i><span>OAF</span></span></h3>
+        <!-- 第二排：应用分布 + 活跃应用 + 热门域名 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-none">
+            
+            <!-- 应用分布环形图 -->
+            <div class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col min-h-[280px]">
+                <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2 flex-none">
+                    <i data-lucide="pie-chart" class="text-orange-500 w-[18px] h-[18px]"></i>
+                    <h2 class="font-medium text-gray-700 m-0">应用分布</h2>
                 </div>
-                <div class="sys-grid">
-                    <div class="sys-item"><span><%:Version%></span><strong id="oaf-version">-</strong></div>
-                    <div class="sys-item"><span><%:Engine%></span><strong id="oaf-engine">-</strong></div>
+                <div class="p-4 flex-1 w-full flex items-center justify-center relative">
+                    <div id="app-dist-chart" class="w-full h-full absolute inset-0"></div>
                 </div>
-                <div class="oaf-upload">
-                    <input type="file" id="oaf-file-input" accept=".bin,.zip">
-                    <button id="oaf-upload-btn" type="button"><%:Update Feature Library%></button>
-                    <div id="oaf-progress-container" class="oaf-progress hidden">
-                        <div id="oaf-bar" class="oaf-progress-bar"></div>
+            </div>
+
+            <!-- 活跃应用 & 热门域名 -->
+            <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <!-- 活跃应用 -->
+                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col min-h-[280px]">
+                    <div class="px-5 py-4 border-b border-gray-50 flex items-center mb-0 space-x-2 flex-none justify-between">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="layout-grid" class="text-pink-500 w-[18px] h-[18px]"></i>
+                            <h2 class="font-medium text-gray-700 m-0">活跃应用</h2>
+                        </div>
+                        <span class="text-xs text-blue-400 ml-1 font-medium" id="app-count">0</span>
+                    </div>
+                    <div class="p-6 flex-1 flex content-start flex-wrap gap-6" id="active-apps-container">
+                        <!-- 活跃应用图标通过 JS 生成 -->
+                    </div>
+                 </div>
+
+                 <!-- 热门域名 -->
+                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col min-h-[280px]">
+                    <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between mb-0 space-x-2 flex-none">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="bar-chart-2" class="text-indigo-500 w-[18px] h-[18px]"></i>
+                            <h2 class="font-medium text-gray-700 m-0">热门域名</h2>
+                        </div>
+                        <span class="text-[10px] text-gray-400" id="domain-source">-</span>
+                    </div>
+                    <div class="p-4 flex-1 overflow-y-auto space-y-3" id="top-domains-list">
+                        <!-- 热门域名进度条通过 JS 生成 -->
+                    </div>
+                 </div>
+            </div>
+        </div>
+
+        <!-- 第三排：系统信息 + 在线设备 + 实时域名 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1 min-h-0 mb-6">
+            
+            <!-- 左侧：充当高度标尺 -->
+            <div class="lg:col-span-4 flex flex-col gap-6 h-full">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex-1 flex flex-col min-h-[320px]">
+                    <div class="px-5 py-4 border-b border-gray-50 flex items-center space-x-2 flex-none mb-0">
+                        <i data-lucide="cpu" class="text-purple-500 w-[18px] h-[18px]"></i>
+                        <h2 class="font-medium text-gray-700 m-0">系统信息</h2>
+                    </div>
+                    <div class="p-5 flex-1 flex flex-col justify-between" id="sys-info-box">
+                        <div>
+                            <div class="flex justify-between items-center text-sm mb-4">
+                                <span class="text-gray-500">设备型号</span>
+                                <span class="font-medium truncate max-w-[200px] text-right text-xs" id="sys-model">-</span>
+                            </div>
+
+                            <div class="pt-1 mb-4">
+                                <div class="flex justify-between text-[11px] text-gray-500 mb-1.5">
+                                    <span>CPU 使用率</span>
+                                    <span id="cpu-text" class="font-medium text-gray-800">0%</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                    <div id="cpu-bar" class="bg-purple-500 h-1.5 rounded-full transition-all duration-500 w-0"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <div class="flex justify-between text-[11px] text-gray-500 mb-1.5">
+                                    <span>CPU 温度</span>
+                                    <span id="cpu-temp" class="font-medium text-orange-500">-</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                    <div id="temp-bar" class="bg-orange-400 h-1.5 rounded-full transition-all duration-500 w-0"></div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="flex justify-between text-[11px] text-gray-500 mb-1.5">
+                                    <span>内存使用</span>
+                                    <span id="mem-text" class="font-medium text-gray-800">0%</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                    <div id="mem-bar" class="h-1.5 rounded-full transition-all duration-500 bg-green-500 w-0"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-50 pt-4 space-y-3 mt-4">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-gray-500 font-mono tracking-tight" id="sys-firmware">-</span>
+                            </div>
+                            <div class="flex justify-between items-center text-[10px] text-gray-400">
+                                <span id="sys-uptime">-</span>
+                                <span id="sys-time">-</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </article>
-        </section>
+
+                <div class="grid grid-cols-2 gap-3 flex-none shrink-0 h-[88px]">
+                    <button onclick="openAIAssistant()" class="bg-indigo-50 flex flex-col items-center justify-center rounded-xl shadow-sm border border-indigo-100 hover:border-indigo-300 hover:bg-indigo-100 text-indigo-600 transition-all w-full h-full cursor-pointer focus:outline-none">
+                        <i data-lucide="sparkles" class="w-5 h-5 mb-1.5"></i>
+                        <span class="text-xs font-bold leading-none">AI 诊断</span>
+                    </button>
+                    <button onclick="window.location.href='/cgi-bin/luci/admin/system'" class="bg-white flex flex-col items-center justify-center rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 hover:text-blue-600 transition-all text-gray-600 w-full h-full cursor-pointer focus:outline-none">
+                        <i data-lucide="settings" class="w-5 h-5 mb-1.5"></i>
+                        <span class="text-xs font-medium leading-none">系统设置</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧：在线设备与实时域名 -->
+            <div class="lg:col-span-8 relative min-h-[400px] lg:min-h-0">
+                <div class="lg:absolute lg:inset-0 w-full h-full grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    <!-- 在线设备 -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-[400px] lg:h-full min-h-0">
+                        <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between flex-none mb-0">
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="users" class="w-[18px] h-[18px] text-blue-500"></i>
+                                <h2 class="font-medium text-gray-700 m-0">在线设备 <span id="active-device-count" class="text-xs text-blue-400 ml-1">0</span></h2>
+                            </div>
+                        </div>
+                        <div class="p-2 flex-1 overflow-y-auto min-h-0" id="devices-list">
+                            <!-- 列表将在此生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 实时域名 -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-[400px] lg:h-full min-h-0">
+                        <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between flex-none mb-0">
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="link" class="w-[18px] h-[18px] text-teal-500"></i>
+                                <h2 class="font-medium text-gray-700 m-0">实时域名</h2>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="animate-pulse w-2 h-2 rounded-full bg-teal-500 mr-2"></span>
+                                <span class="text-[10px] text-gray-400" id="realtime-domain-source">实时追踪中</span>
+                            </div>
+                        </div>
+                        <div class="p-2 flex-1 overflow-y-auto min-h-0 relative space-y-1.5" id="recent-domains-list">
+                             <!-- 列表将在此生成 -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- AI 诊断 Modal (模态框) -->
+    <div id="aiModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-[#1e293b]/40 backdrop-blur-sm transition-opacity opacity-0 mx-0">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 md:p-8 transform transition-transform scale-95 duration-300 relative max-h-[85vh] flex flex-col mx-4">
+            <button onclick="closeAIAssistant()" title="关闭诊断面板" aria-label="关闭诊断面板" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors focus:outline-none bg-transparent border-0">
+                <i data-lucide="x" class="w-5 h-5 cursor-pointer"></i>
+            </button>
+            <h3 class="text-xl font-bold mb-2 flex items-center gap-2 text-indigo-600 shrink-0 m-0 mt-2">
+                ✨ Gemini 智能网络体检
+            </h3>
+            <p class="text-sm text-gray-500 mb-6 shrink-0 mt-2">正基于当前路由器的实时运行负载、连接数及热门域名进行 AI 健康分析。</p>
+            
+            <div id="aiLoading" class="hidden flex-col items-center justify-center py-10 flex-1">
+                <div class="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                <span class="text-gray-500 text-sm animate-pulse">正在呼叫 Gemini 进行多维度分析，请稍候...</span>
+            </div>
+
+            <div id="aiContent" class="overflow-y-auto flex-1 prose prose-slate prose-sm sm:prose-base max-w-none text-gray-700 pr-2">
+                <!-- AI 生成的内容将渲染在这里 -->
+            </div>
+        </div>
     </div>
 </div>
 
-<script type="text/javascript">
-window.DASH_I18N = {
-    uploadLabel: '<%:Upload%>',
-    downloadLabel: '<%:Download%>',
-    unknown: '<%:Unknown%>',
-    online: '<%:Online%>',
-    offline: '<%:Offline%>',
-    noOnlineDeviceData: '<%:No online device data%>',
-    noDomainActivity: '<%:No domain activity%>',
-    noActiveAppData: '<%:No active app data%>',
-    unavailable: '<%:Unavailable%>',
-    updateFeatureLibrary: '<%:Update Feature Library%>',
-    uploading: '<%:Uploading...%>',
-    updateSuccess: '<%:Update Success%>',
-    uploadFailed: '<%:Upload failed%>',
-    unknownError: '<%:Unknown error%>',
-    networkErrorWhileUploading: '<%:Network error while uploading.%>',
-    fileTooLarge: '<%:File is too large (max 32MB).%>',
-    unsupportedFileType: '<%:Unsupported file type. Use .bin or .zip%>',
-    reasonRouteIp: '<%:Route + IP%>',
-    reasonDefaultRoute: '<%:Default Route%>',
-    reasonIpPresent: '<%:IP Present%>',
-    reasonProbeOk: '<%:Probe Succeeded%>',
-    reasonNoRouteNoIp: '<%:No Route / No IP%>',
-    reasonFallback: '<%:Fallback%>',
-    shortDay: '<%:d%>',
-    shortHour: '<%:h%>',
-    shortMinute: '<%:m%>'
-};
-</script>
 <script src="/luci-static/dashboard/dashboard.js"></script>
 <%+footer%>
