@@ -269,11 +269,20 @@ local function resolve_uplink_status()
         wan_ip = read_ipv4_from_device(best.l3_device or best.device or default_dev)
     end
 
-    -- 2. 联网探测：分层校验法
+    -- 2. 联网探测：优先看链路与路由，外探测仅作为增强信号
+    -- 兼容 OpenClash fake-ip 等场景（ICMP/DNS/HTTP 探测可能被策略或劫持影响）
+    local link_up = best.up == true
+    local has_wan_ip = wan_ip ~= ""
+    local route_ready = has_default_route(best) or default_dev ~= ""
+    local probe_ok = false
+    if link_up then
+        -- 兼容 Lua 5.1 (返回0) 和 Lua 5.3+ (返回true)
+        probe_ok = proactive_ping_check()
+    end
+
     local is_online = false
-    if best.up then
-        -- 复用 proactive_ping_check()，兼容 Lua 5.1 (返回0) 和 Lua 5.3+ (返回true)
-        is_online = proactive_ping_check()
+    if link_up and (probe_ok or (route_ready and has_wan_ip)) then
+        is_online = true
     end
 
     return {
@@ -281,6 +290,9 @@ local function resolve_uplink_status()
         status = best,
         wan_ip = wan_ip,
         online = is_online,
+        link_up = link_up,
+        route_ready = route_ready,
+        probe_ok = probe_ok,
         gateway = read_default_route_gateway(),
         dns = to_array(best and best["dns-server"] or {}),
         uptime = tonumber(best and best.uptime or 0) or 0,
@@ -547,6 +559,9 @@ local function api_netinfo()
         connCount          = read_conntrack_count(),
         interfaceName      = uplink.name,
         gateway            = uplink.gateway,
+        linkUp             = uplink.link_up,
+        routeReady         = uplink.route_ready,
+        probeOk            = uplink.probe_ok,
     }))
 end
 
