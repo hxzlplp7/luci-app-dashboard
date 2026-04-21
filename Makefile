@@ -19,4 +19,11 @@ LUCI_MINIFY_JS:=0
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
+define Package/luci-i18n-dashboard-zh-cn/postinst
+#!/bin/sh
+[ -f /etc/uci-defaults/luci-i18n-dashboard-zh-cn ] && . /etc/uci-defaults/luci-i18n-dashboard-zh-cn
+rm -f /etc/uci-defaults/luci-i18n-dashboard-zh-cn
+exit 0
+endef
+
 # call BuildPackage - OpenWrt buildroot signature
