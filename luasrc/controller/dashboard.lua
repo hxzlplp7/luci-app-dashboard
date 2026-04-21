@@ -56,14 +56,19 @@ local function read_all(path)
 end
 
 local function trim(value)
-    return tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    local s = tostring(value or "")
+    s = s:gsub("^%s+", "")
+    s = s:gsub("%s+$", "")
+    return s
 end
 
 local function exec_trim(cmd)
     local p = io.popen(cmd .. " 2>/dev/null")
     if not p then return "" end
-    local out = p:read("*a") or ""; p:close()
-    return out:gsub("%s+$", "")
+    local out = p:read("*a") or ""
+    p:close()
+    out = out:gsub("%s+$", "")
+    return out
 end
 
 local function shell_quote(value)
