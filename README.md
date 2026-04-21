@@ -51,3 +51,29 @@ make package/luci-app-dashboard/compile V=s
 
 ---
 *Created with ❤️ by dashboard-community.*
+
+## Active Domains (dnsmasq + conntrack)
+
+Hot Domains now prefers live DNS logs and connection metadata:
+
+1. `appfilter` visit data (if available)
+2. `dnsmasq` query/reply logs from `logread`
+3. `conntrack` destination flows mapped to DNS replies
+4. other DNS logs (`smartdns`, `adguardhome`, `mosdns`, etc.)
+5. proxy logs as fallback only (`openclash`, `passwall`, `mihomo`, `sing-box`)
+
+This package does **not** auto-edit DNS config. Enable dnsmasq query logs manually:
+
+```bash
+echo 'log-queries=proto' >> /etc/dnsmasq.conf
+/etc/init.d/dnsmasq restart
+```
+
+Observe DNS and flow activity:
+
+```bash
+logread -f | grep dnsmasq
+conntrack -E
+```
+
+Note: `conntrack` provides flow metadata (`src/dst/proto/port`) and does not contain domain names by itself. Domain attribution comes from DNS log correlation.

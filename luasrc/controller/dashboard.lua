@@ -434,6 +434,84 @@ local function collect_domains_from_command(command)
     return domains
 end
 
+local function collect_dnsmasq_activity(command)
+    local domains = {}
+    local ip_map = {}
+    local pipe = io.popen(command .. " 2>/dev/null")
+    if not pipe then
+        return domains, ip_map
+    end
+
+    local function record_ip_domain(ip, domain)
+        if trim(ip) == "" or not domain then
+            return
+        end
+        local bucket = ip_map[ip]
+        if not bucket then
+            bucket = {}
+            ip_map[ip] = bucket
+        end
+        bucket[domain] = (bucket[domain] or 0) + 1
+    end
+
+    for line in pipe:lines() do
+        local raw = tostring(line or "")
+
+        local extracted = extract_domains_from_line(raw)
+        for _, domain in ipairs(extracted) do
+            domains[#domains + 1] = domain
+        end
+
+        local reply_domain, reply_ip = raw:match("reply%s+([%w%-%.]+)%s+is%s+([%d%.]+)")
+        if not reply_domain then
+            reply_domain, reply_ip = raw:match("cached%s+([%w%-%.]+)%s+is%s+([%d%.]+)")
+        end
+        local normalized = normalize_domain(reply_domain)
+        if normalized and reply_ip then
+            record_ip_domain(reply_ip, normalized)
+        end
+    end
+
+    pipe:close()
+    return domains, ip_map
+end
+
+local function collect_domains_from_conntrack(ip_map)
+    local domains = {}
+    if type(ip_map) ~= "table" or next(ip_map) == nil then
+        return domains
+    end
+
+    local pipe = io.popen("conntrack -L 2>/dev/null")
+    if not pipe then
+        return domains
+    end
+
+    for line in pipe:lines() do
+        local dst_ip = tostring(line or ""):match("dst=([%d%.]+)")
+        if dst_ip and ip_map[dst_ip] then
+            for domain, weight in pairs(ip_map[dst_ip]) do
+                local times = math.floor(tonumber(weight) or 1)
+                if times < 1 then
+                    times = 1
+                elseif times > 20 then
+                    times = 20
+                end
+                for _ = 1, times do
+                    domains[#domains + 1] = domain
+                    if #domains >= 8000 then
+                        pipe:close()
+                        return domains
+                    end
+                end
+            end
+        end
+    end
+
+    pipe:close()
+    return domains
+end
+
 local function collect_domains_from_appfilter_visitlist()
     local domains = {}
     local ok, payload = pcall(util.ubus, "appfilter", "visit_list", {})
@@ -525,7 +603,6 @@ end
 
 local function collect_domain_source()
     local dns_file_sources = {
-        { name = "dnsmasq", path = "/tmp/dnsmasq.log", command = "tail -n 6000 /tmp/dnsmasq.log" },
         { name = "smartdns", path = "/tmp/smartdns.log", command = "tail -n 6000 /tmp/smartdns.log" },
         { name = "adguardhome", path = "/tmp/AdGuardHome.log", command = "tail -n 6000 /tmp/AdGuardHome.log" },
         { name = "mosdns", path = "/tmp/mosdns.log", command = "tail -n 6000 /tmp/mosdns.log" },
@@ -566,7 +643,22 @@ local function collect_domain_source()
         end
     end
 
-    append_domains("appfilter", collect_domains_from_appfilter_visitlist(), 8000)
+    append_domains("appfilter", collect_domains_from_appfilter_visitlist(), 4000)
+
+    if #merged < max_merged then
+        local dnsmasq_domains, dnsmasq_ip_map = collect_dnsmasq_activity(
+            "logread | grep -iE 'dnsmasq' | tail -n 12000"
+        )
+        if #dnsmasq_domains > 0 then
+            append_domains("dnsmasq-logread", dnsmasq_domains, 7000)
+        end
+        if #merged < max_merged then
+            local conntrack_domains = collect_domains_from_conntrack(dnsmasq_ip_map)
+            if #conntrack_domains > 0 then
+                append_domains("conntrack+dnsmasq", conntrack_domains, 5000)
+            end
+        end
+    end
 
     for _, source in ipairs(dns_file_sources) do
         if #merged >= max_merged then
@@ -585,18 +677,20 @@ local function collect_domain_source()
             "logread | grep -iE 'dnsmasq|smartdns|adguardhome|mosdns|unbound|pdnsd|chinadns' | tail -n 8000"
         )
         if #dns_logread > 0 then
-            append_domains("logread-dns", dns_logread, 6000)
+            append_domains("logread-dns", dns_logread, 4000)
         end
     end
 
-    for _, source in ipairs(plugin_sources) do
-        if #merged >= max_merged then
-            break
-        end
-        if path_exists(source.path) then
-            local domains = collect_domains_from_command(source.command)
-            if #domains > 0 then
-                append_domains(source.name, domains, 3000)
+    if #merged == 0 then
+        for _, source in ipairs(plugin_sources) do
+            if #merged >= max_merged then
+                break
+            end
+            if path_exists(source.path) then
+                local domains = collect_domains_from_command(source.command)
+                if #domains > 0 then
+                    append_domains(source.name, domains, 2000)
+                end
             end
         end
     end
