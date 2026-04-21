@@ -1,8 +1,8 @@
 -- Dashboard Controller
--- entry({"admin","dashboard"}) → dashboard_dispatch()
---   → renders main.htm  OR  serves 5 local JSON APIs consumed by main.htm
--- entry({"dashboard-api"})     → dashboard_api()
---   → Vue-bundle API gateway (api_network / api_system / api_guide / api_nas)
+-- entry({"admin","dashboard"}) -> dashboard_dispatch()
+--   -> renders main.htm OR serves 5 local JSON APIs consumed by main.htm
+-- entry({"dashboard-api"}) -> dashboard_api()
+--   -> Vue-bundle API gateway (api_network / api_system / api_guide / api_nas)
 
 local http       = require "luci.http"
 local util       = require "luci.util"
@@ -11,7 +11,7 @@ local d          = require "luci.dispatcher"
 local fs         = require "nixio.fs"
 local _          = require "luci.i18n".translate
 
--- 定义模块表 (兼容 Lua 5.1/5.4)
+-- Module table (Lua 5.1/5.4 compatible)
 local M = {}
 
 function M.index()
@@ -155,6 +155,26 @@ local function read_ipv4_from_device(dev)
     return s
 end
 
+local function first_ipv6_address(status)
+    if type(status) ~= "table" then
+        return ""
+    end
+
+    local list = status["ipv6-address"] or {}
+    if type(list) == "table" and type(list[1]) == "table" then
+        return trim(list[1].address or "")
+    end
+
+    return trim(status.ip6addr or "")
+end
+
+local function read_ipv6_from_device(dev)
+    dev = trim(dev)
+    if dev == "" then return "" end
+    local s = exec_trim("ip -6 addr show dev " .. shell_quote(dev) .. " scope global | awk '/inet6 / {print $2; exit}' | cut -d/ -f1")
+    return s
+end
+
 local function proactive_ping_check()
     local ok = os.execute("ping -c 1 -W 1 223.5.5.5 >/dev/null 2>&1")
     if ok == 0 or ok == true then return true end
@@ -269,19 +289,25 @@ local function resolve_uplink_status()
         wan_ip = read_ipv4_from_device(best.l3_device or best.device or default_dev)
     end
 
-    -- 2. 联网探测：优先看链路与路由，外探测仅作为增强信号
-    -- 兼容 OpenClash fake-ip 等场景（ICMP/DNS/HTTP 探测可能被策略或劫持影响）
+    local wan_ipv6 = first_ipv6_address(best)
+    if wan_ipv6 == "" then
+        wan_ipv6 = read_ipv6_from_device(best.l3_device or best.device or default_dev)
+    end
+
+    -- Follow quickstart-like behavior: use link/route/IP state as primary signal.
+    -- Active probe remains diagnostic only and does not gate online status.
     local link_up = best.up == true
-    local has_wan_ip = wan_ip ~= ""
-    local route_ready = has_default_route(best) or default_dev ~= ""
+    local has_wan_ip = wan_ip ~= "" or wan_ipv6 ~= ""
+    local gateway = read_default_route_gateway()
+    local route_ready = has_default_route(best) or default_dev ~= "" or gateway ~= ""
+
     local probe_ok = false
     if link_up then
-        -- 兼容 Lua 5.1 (返回0) 和 Lua 5.3+ (返回true)
         probe_ok = proactive_ping_check()
     end
 
     local is_online = false
-    if link_up and (probe_ok or (route_ready and has_wan_ip)) then
+    if link_up and (route_ready or has_wan_ip) then
         is_online = true
     end
 
@@ -289,11 +315,12 @@ local function resolve_uplink_status()
         name = best_name,
         status = best,
         wan_ip = wan_ip,
+        wan_ipv6 = wan_ipv6,
         online = is_online,
         link_up = link_up,
         route_ready = route_ready,
         probe_ok = probe_ok,
-        gateway = read_default_route_gateway(),
+        gateway = gateway,
         dns = to_array(best and best["dns-server"] or {}),
         uptime = tonumber(best and best.uptime or 0) or 0,
     }
@@ -447,7 +474,7 @@ local function api_sysinfo()
         end
     end
 
-    -- CPU 使用率：跨请求差分采样法，利用轮询间隔（10s）作为采样窗口
+    -- CPU usage uses cross-request delta sampling with polling interval as the sample window.
     local CPU_STATE_FILE = "/tmp/.dashboard_cpu_state"
 
     local function get_cpu_jiffies()
@@ -489,7 +516,7 @@ local function api_sysinfo()
 
     local lavg       = read_line("/proc/loadavg") or "0"
     local load1      = tonumber(lavg:match("^(%S+)")) or 0
-    -- 此处已移除冗余的 cpuUsage 覆盖逻辑，直接使用上方计算出的真实使用率
+    -- Keep cpuUsage from the delta sampler above; do not override with loadavg.
 
     local meminfo  = read_all("/proc/meminfo") or ""
     local mem      = {}
@@ -527,6 +554,7 @@ local function api_netinfo()
     if not ok_uplink or type(uplink) ~= "table" then
         local default_dev = read_default_route_device()
         local fallback_wan = read_ipv4_from_device(default_dev)
+        local fallback_wan6 = read_ipv6_from_device(default_dev)
         if fallback_wan == "" then
             fallback_wan = exec_trim("ip -4 addr show scope global | awk '/inet / && $NF != \"lo\" {print $2; exit}' | cut -d/ -f1")
         end
@@ -534,7 +562,8 @@ local function api_netinfo()
         uplink = {
             name = default_dev ~= "" and default_dev or "wan",
             wan_ip = fallback_wan,
-            online = default_dev ~= "" or fallback_wan ~= "",
+            wan_ipv6 = fallback_wan6,
+            online = default_dev ~= "" or fallback_wan ~= "" or fallback_wan6 ~= "",
             dns = {},
             uptime = 0,
             gateway = read_default_route_gateway(),
@@ -553,6 +582,7 @@ local function api_netinfo()
     http.write(jsonc.stringify({
         wanStatus          = uplink.online and "up" or "down",
         wanIp              = uplink.wan_ip,
+        wanIpv6            = uplink.wan_ipv6,
         lanIp              = lan_ip,
         dns                = uplink.dns,
         network_uptime_raw = uplink.uptime,
