@@ -24,7 +24,7 @@
             let mockRx = 1024 * 1024 * 300;
             switch(endpoint) {
                 case 'netinfo': return { wanStatus: 'up', wanIp: '100.64.12.34', lanIp: '192.168.100.1', dns: ['202.103.24.68', '202.103.44.150'], network_uptime_raw: 445800, publicIp: '1.2.3.4', publicCountry: 'Local' };
-                case 'sysinfo': return { model: '纯离线预览(假数据)', firmware: 'iStoreOS 24.10.2', kernel: '6.6.93', temp: 40, systime_raw: Math.floor(Date.now() / 1000), uptime_raw: 84942, cpuUsage: 3, memUsage: 12, hasSamba4: false };
+                case 'sysinfo': return { model: '纯离线预览(假数据)', firmware: 'iStoreOS 24.10.2', kernel: '6.6.93', temp: 40, systime_raw: Math.floor(Date.now() / 1000), uptime_raw: 84942, cpuUsage: 3, memUsage: 12 };
                 case 'traffic': mockTx += Math.floor(Math.random() * 2000000); mockRx += Math.floor(Math.random() * 15000000); return { tx_bytes: mockTx, rx_bytes: mockRx };
                 case 'devices': return [
                     { mac: 'AA:BB:CC:DD:EE:FF', ip: '192.168.100.101', name: 'iPhone-13', type: 'mobile', active: true },

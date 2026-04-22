@@ -2,4 +2,6 @@
 .vscode/
 node_modules/
 *.zip
+feature3.0_cn_*.tar
+feature3.0_cn_*.bin
 feature3.0_cn_*/

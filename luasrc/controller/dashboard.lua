@@ -962,8 +962,6 @@ local function build_sysinfo_data()
     local ma       = mem.MemAvailable or mem.MemFree or 0
     local memUsage = math.floor((mt - ma) * 100 / mt)
 
-    local hasSamba4 = path_exists("/usr/lib/lua/luci/controller/samba4.lua") or path_exists("/etc/config/samba4")
-
     return {
         hostname    = hostname,
         model       = model,
@@ -974,7 +972,6 @@ local function build_sysinfo_data()
         uptime_raw  = uptime_raw,
         cpuUsage    = cpuUsage,
         memUsage    = memUsage,
-        samba       = hasSamba4,
     }
 end
 
