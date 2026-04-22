@@ -1,4 +1,18 @@
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+            lucide.createIcons();
+        } else {
+            console.warn('[Dashboard] lucide is not loaded.');
+        }
+
+        function initNavButtons() {
+            const navButtons = document.querySelectorAll('.dash-nav-button[data-nav-target]');
+            navButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    const target = button.getAttribute('data-nav-target');
+                    if (target) window.location.href = target;
+                });
+            });
+        }
 
         const getApiBase = () => {
             const h = window.location.pathname;
@@ -146,7 +160,9 @@
                         </div>
                     </div>
                 </div>`).join('');
-            lucide.createIcons(); 
+            if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+                lucide.createIcons();
+            }
         }
 
         let domainData = { top: [], recent: [], realtime: [] };
@@ -226,7 +242,10 @@
         }
 
         // 初始化图表
-        const lineChart = echarts.init(document.getElementById('traffic-line-chart'));
+        const hasEcharts = typeof echarts !== 'undefined';
+        const emptyChart = { setOption: function () {}, resize: function () {} };
+        if (!hasEcharts) console.error('[Dashboard] echarts is not loaded.');
+        const lineChart = hasEcharts ? echarts.init(document.getElementById('traffic-line-chart')) : emptyChart;
         lineChart.setOption({
             tooltip: { trigger: 'axis', backgroundColor: 'rgba(255, 255, 255, 0.95)', textStyle: { color: '#1e293b' }, formatter: function (p) {
                 let r = `<div style="font-weight:bold;margin-bottom:4px;color:#475569;">${p[0].axisValue}</div>`;
@@ -242,7 +261,7 @@
         });
 
         // 环形图 (应用分布)
-        const donutChart = echarts.init(document.getElementById('app-dist-chart'));
+        const donutChart = hasEcharts ? echarts.init(document.getElementById('app-dist-chart')) : emptyChart;
         donutChart.setOption({
             tooltip: { trigger: 'item' },
             color: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#cbd5e1'],
@@ -294,5 +313,6 @@
             }
         }
 
+        initNavButtons();
         loadStaticInfo(); loadDevices(); loadDomains(); loadActiveApps(); refresh();
         setInterval(refresh, 2000); setInterval(loadDomains, 5000); setInterval(loadActiveApps, 15000);

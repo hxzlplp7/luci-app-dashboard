@@ -1,5 +1,8 @@
 module.exports = {
   content: ["./luasrc/view/dashboard/*.htm", "./htdocs/luci-static/dashboard/*.js"],
+  corePlugins: {
+    preflight: false,
+  },
   theme: {
     extend: {
       colors: {

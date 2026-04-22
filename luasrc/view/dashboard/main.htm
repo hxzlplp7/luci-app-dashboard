@@ -1,28 +1,5 @@
 <%+header%>
-<script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-<script>
-    tailwind.config = {
-        corePlugins: {
-            // 禁止 tailwind 的全局 reset 样式污染 LuCI 主题
-            preflight: false,
-        }
-    }
-</script>
-<script src="https://unpkg.com/lucide@latest"></script>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
-<!-- 添加一点基础样式避免 preflight:false 导致的展示异常 -->
-<style>
-    .dash-tailwind-scope * {
-        box-sizing: border-box;
-    }
-    .dash-tailwind-scope button {
-        background: transparent;
-        border: none;
-        cursor: pointer;
-    }
-</style>
+<link rel="stylesheet" href="/luci-static/dashboard/dashboard.css">
 
 <div class="dash-tailwind-scope bg-[#f4f6f8] font-sans text-gray-800 min-h-screen -mx-4 -mt-4 p-4">
     <main class="max-w-[1400px] mx-auto p-2 mt-2 flex flex-col gap-6">
@@ -238,11 +215,11 @@
                 </div>
 
                 <div class="grid grid-cols-2 gap-3 flex-none shrink-0 h-[88px]">
-                    <button onclick="window.location.href='/cgi-bin/luci/admin/system/admin'" class="bg-white flex flex-col items-center justify-center rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 hover:text-blue-600 transition-all text-gray-600 w-full h-full cursor-pointer focus:outline-none">
+                    <button type="button" data-nav-target="/cgi-bin/luci/admin/system/admin" class="dash-nav-button bg-white flex flex-col items-center justify-center rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 hover:text-blue-600 transition-all text-gray-600 w-full h-full cursor-pointer focus:outline-none">
                         <i data-lucide="key" class="w-5 h-5 mb-1.5"></i>
                         <span class="text-xs font-medium leading-none">修改密码</span>
                     </button>
-                    <button onclick="window.location.href='/cgi-bin/luci/admin/system'" class="bg-white flex flex-col items-center justify-center rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 hover:text-blue-600 transition-all text-gray-600 w-full h-full cursor-pointer focus:outline-none">
+                    <button type="button" data-nav-target="/cgi-bin/luci/admin/system" class="dash-nav-button bg-white flex flex-col items-center justify-center rounded-xl shadow-sm border border-gray-100 hover:border-blue-200 hover:text-blue-600 transition-all text-gray-600 w-full h-full cursor-pointer focus:outline-none">
                         <i data-lucide="settings" class="w-5 h-5 mb-1.5"></i>
                         <span class="text-xs font-medium leading-none">系统设置</span>
                     </button>
@@ -289,5 +266,8 @@
     </main>
 </div>
 
+<script src="/luci-static/dashboard/lucide.min.js"></script>
+<script src="/luci-static/dashboard/echarts.min.js"></script>
+<script src="/luci-static/dashboard/marked.min.js"></script>
 <script src="/luci-static/dashboard/dashboard.js"></script>
 <%+footer%>

@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    .dash-tailwind-scope * {
+        box-sizing: border-box;
+    }
+
+    .dash-tailwind-scope button {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+    }
+}
