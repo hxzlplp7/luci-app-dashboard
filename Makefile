@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-dashboard
-PKG_VERSION:=0.0.1
+PKG_VERSION:=0.0.2
 PKG_MAINTAINER:=dashboard-community
 
 LUCI_TITLE:=LuCI Dashboard
@@ -41,13 +41,6 @@ if [ ! -f "$${ROOT}$${FEATURE_FILE}" ] && [ -f "$${ROOT}$${DEFAULT_DIR}/feature.
 	printf '%s\n' "$${DEFAULT_VERSION}" > "$${ROOT}$${VERSION_FILE}"
 fi
 
-exit 0
-endef
-
-define Package/luci-i18n-dashboard-zh-cn/postinst
-#!/bin/sh
-[ -f /etc/uci-defaults/luci-i18n-dashboard-zh-cn ] && . /etc/uci-defaults/luci-i18n-dashboard-zh-cn
-rm -f /etc/uci-defaults/luci-i18n-dashboard-zh-cn
 exit 0
 endef
 
