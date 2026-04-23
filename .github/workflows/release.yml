@@ -13,6 +13,7 @@ permissions:
 
 env:
   PKG_NAME: luci-app-dashboard
+  PKG_LIST: luci-app-dashboard kmod-dashboard-monitor
 
 jobs:
   build:
@@ -38,13 +39,13 @@ jobs:
         env:
           ARCH: x86_64-21.02.7
           FEED_DIR: ${{ github.workspace }}/.feed
-          PACKAGES: ${{ env.PKG_NAME }}
+          PACKAGES: ${{ env.PKG_LIST }}
           NO_REFRESH_CHECK: true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PKG_NAME }}-ipk
+          name: dashboard-packages-ipk
           path: bin/packages/*/action/*.ipk
 
       - name: Create Release and Upload Assets

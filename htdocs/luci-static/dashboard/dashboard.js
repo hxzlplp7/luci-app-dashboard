@@ -19,13 +19,72 @@
             return h.includes('/admin/') ? h.split('/admin/')[0] + '/admin/dashboard/api' : '/cgi-bin/luci/admin/dashboard/api';
         };
 
+        const dashboardData = window.DashboardData || {};
+        const pickActiveAppState = typeof dashboardData.pickActiveAppState === 'function'
+            ? dashboardData.pickActiveAppState
+            : function(databus, oafData) {
+                return {
+                    apps: (databus && databus.online_apps && databus.online_apps.list) || (oafData && oafData.active_apps) || [],
+                    classStats: (databus && databus.app_recognition && databus.app_recognition.class_stats) || (oafData && oafData.class_stats) || [],
+                    source: (databus && databus.app_recognition && databus.app_recognition.source) || (oafData && oafData.active_source) || 'none',
+                };
+            };
+        const deriveTrafficSnapshot = typeof dashboardData.deriveTrafficSnapshot === 'function'
+            ? dashboardData.deriveTrafficSnapshot
+            : function(sample, previousState, nowMs) {
+                const now = Number(nowMs);
+                const nextState = {
+                    interface: sample && sample.interface ? String(sample.interface) : '',
+                    tx_bytes: Math.max(0, Number(sample && sample.tx_bytes) || 0),
+                    rx_bytes: Math.max(0, Number(sample && sample.rx_bytes) || 0),
+                    at: Number.isFinite(now) && now > 0 ? now : Date.now(),
+                };
+
+                const backendTxRate = Number(sample && sample.tx_rate);
+                const backendRxRate = Number(sample && sample.rx_rate);
+                if (Number.isFinite(backendTxRate) || Number.isFinite(backendRxRate)) {
+                    return {
+                        txRate: Number.isFinite(backendTxRate) ? Math.max(0, backendTxRate) : 0,
+                        rxRate: Number.isFinite(backendRxRate) ? Math.max(0, backendRxRate) : 0,
+                        nextState: nextState,
+                    };
+                }
+
+                if (!previousState || previousState.interface !== nextState.interface) {
+                    return { txRate: 0, rxRate: 0, nextState: nextState };
+                }
+
+                const prevAt = Math.max(0, Number(previousState.at) || 0);
+                const prevTx = Math.max(0, Number(previousState.tx_bytes) || 0);
+                const prevRx = Math.max(0, Number(previousState.rx_bytes) || 0);
+                const diffSeconds = (nextState.at - prevAt) / 1000;
+                if (!(diffSeconds > 0)) {
+                    return { txRate: 0, rxRate: 0, nextState: nextState };
+                }
+
+                const txDelta = nextState.tx_bytes - prevTx;
+                const rxDelta = nextState.rx_bytes - prevRx;
+                if (txDelta < 0 || rxDelta < 0) {
+                    return { txRate: 0, rxRate: 0, nextState: nextState };
+                }
+
+                return {
+                    txRate: txDelta / diffSeconds,
+                    rxRate: rxDelta / diffSeconds,
+                    nextState: nextState,
+                };
+            };
+
+        let mockTx = 1024 * 1024 * 50;
+        let mockRx = 1024 * 1024 * 300;
         const getMockData = (endpoint) => {
-            let mockTx = 1024 * 1024 * 50;
-            let mockRx = 1024 * 1024 * 300;
             switch(endpoint) {
                 case 'netinfo': return { wanStatus: 'up', wanIp: '100.64.12.34', lanIp: '192.168.100.1', dns: ['202.103.24.68', '202.103.44.150'], network_uptime_raw: 445800, publicIp: '1.2.3.4', publicCountry: 'Local' };
-                case 'sysinfo': return { model: '纯离线预览(假数据)', firmware: 'iStoreOS 24.10.2', kernel: '6.6.93', temp: 40, systime_raw: Math.floor(Date.now() / 1000), uptime_raw: 84942, cpuUsage: 3, memUsage: 12 };
-                case 'traffic': mockTx += Math.floor(Math.random() * 2000000); mockRx += Math.floor(Math.random() * 15000000); return { tx_bytes: mockTx, rx_bytes: mockRx };
+                case 'sysinfo': return { model: '缂傚倷鑳堕搹搴ㄥ垂閹惰В鈧牠宕堕埡鍐╋紡闂佺鍕垫闁哄棙娲熼幃?闂備胶顭堥鍛洪敃鍌氭辈闁绘梻鍘х粻?', firmware: 'iStoreOS 24.10.2', kernel: '6.6.93', temp: 40, systime_raw: Math.floor(Date.now() / 1000), uptime_raw: 84942, cpuUsage: 3, memUsage: 12 };
+                case 'traffic':
+                    mockTx += Math.floor(Math.random() * 2000000);
+                    mockRx += Math.floor(Math.random() * 15000000);
+                    return { interface: 'eth0', tx_bytes: mockTx, rx_bytes: mockRx, tx_rate: 240000, rx_rate: 960000 };
                 case 'devices': return [
                     { mac: 'AA:BB:CC:DD:EE:FF', ip: '192.168.100.101', name: 'iPhone-13', type: 'mobile', active: true },
                     { mac: '11:22:33:44:55:66', ip: '192.168.100.105', name: 'MacBook-Pro', type: 'laptop', active: true },
@@ -37,9 +96,27 @@
                     realtime: [ { domain: 'baidu.com', count: 12 }, { domain: 'github.com', count: 843 } ]
                 };
                 case 'apps': return [
-                    { name: '美团', color: 'bg-yellow-400', text: '美', textColor: 'text-black' },
-                    { name: '微信', color: 'bg-green-500', icon: 'message-circle', textColor: 'text-white' }
+                    { name: 'Meituan', color: 'bg-yellow-400', text: 'M', textColor: 'text-black' },
+                    { name: 'WeChat', color: 'bg-green-500', icon: 'message-circle', textColor: 'text-white' }
                 ];
+                case 'databus': return {
+                    online_apps: {
+                        total: 2,
+                        list: [
+                            { name: 'Microsoft', source: 'domain-heuristic' },
+                            { name: 'Google', source: 'domain-heuristic' }
+                        ]
+                    },
+                    app_recognition: {
+                        available: true,
+                        source: 'domain-heuristic',
+                        engine: 'domain-heuristic',
+                        class_stats: [
+                            { name: 'cloud', time: 8 },
+                            { name: 'search', time: 4 }
+                        ]
+                    }
+                };
                 default: return null;
             }
         };
@@ -64,7 +141,7 @@
             }
         }
 
-        // 标签友好化函数
+        // Normalize raw source labels.
         function formatSourceLabel(raw) {
             if (!raw || raw === 'none' || raw === '-') return '-';
             const SOURCE_MAP = {
@@ -76,20 +153,21 @@
             };
             if (SOURCE_MAP[raw]) return SOURCE_MAP[raw];
             for (const key of Object.keys(SOURCE_MAP)) if (raw.indexOf(key) !== -1) return SOURCE_MAP[key];
-            return raw.length > 20 ? raw.slice(0, 20) + '…' : raw;
+            return raw.length > 20 ? raw.slice(0, 20) + '...' : raw;
         }
 
         function formatBytes(b) {
-            if (!b || b === 0) return '0 B';
+            const bytes = Number(b);
+            if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
             const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(b) / Math.log(k));
-            return parseFloat((b / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
         function formatUptime(s) {
             if (!s || s <= 0) return '-';
             const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
-            return `${d > 0 ? d + 'd ' : ''}${h}h ${m}m`;
+            return `${d > 0 ? d + '天 ' : ''}${h}小时 ${m}分`;
         }
 
         function formatSysTime(unixSeconds) {
@@ -99,7 +177,7 @@
 
         let sysUptimeGlobal = 0, netUptimeGlobal = 0, sysTimeGlobal = 0;
         setInterval(() => {
-            if (sysUptimeGlobal > 0) document.getElementById('sys-uptime').innerText = 'UP: ' + formatUptime(++sysUptimeGlobal);
+            if (sysUptimeGlobal > 0) document.getElementById('sys-uptime').innerText = '在线时间: ' + formatUptime(++sysUptimeGlobal);
             if (netUptimeGlobal > 0) document.getElementById('network-uptime').innerText = formatUptime(++netUptimeGlobal);
             if (sysTimeGlobal > 0) document.getElementById('sys-time').innerText = formatSysTime(++sysTimeGlobal);
         }, 1000);
@@ -110,7 +188,7 @@
                 document.getElementById('wan-ip').innerText = net.wanIp || '-';
                 document.getElementById('lan-ip').innerText = net.lanIp || '-';
                 document.getElementById('gateway').innerText = net.gateway || '-';
-                document.getElementById('internet-status-text').innerText = net.wanStatus === 'up' ? (net.wanIp ? '外网畅通' : '线路就绪') : '外网断开';
+                document.getElementById('internet-status-text').innerText = net.wanStatus === 'up' ? (net.wanIp ? 'Internet Online' : 'Gateway Ready') : 'Internet Offline';
                 document.getElementById('internet-status-desc').innerText = net.onlineReason ? net.onlineReason : '-';
                 if(document.getElementById('summary-connections') && net.connCount) document.getElementById('summary-connections').innerText = net.connCount;
 
@@ -132,7 +210,7 @@
         function updateCpuMem(s) {
             document.getElementById('cpu-text').innerText = s.cpuUsage + '%';
             document.getElementById('cpu-bar').style.width = s.cpuUsage + '%';
-            document.getElementById('cpu-temp').innerText = s.temp > 0 ? s.temp + '℃' : '-';
+            document.getElementById('cpu-temp').innerText = s.temp > 0 ? s.temp + ' C' : '-';
             const tb = document.getElementById('temp-bar');
             const tv = s.temp || 0;
             tb.style.width = Math.min(tv, 100) + '%';
@@ -173,7 +251,7 @@
             document.getElementById('domain-source').innerText = formatSourceLabel(domainData.source);
             document.getElementById('realtime-domain-source').innerText = formatSourceLabel(domainData.realtime_source);
 
-            // 渲染 热门域名
+            // 婵犵數鍋為幐绋款嚕閸洘鍋?闂備胶绮崺鍫ュ矗閸愩剮娑㈩敆閸曨偅妲梺缁樻閺€閬嶅磹?
             const topList = domainData.top || [];
             const maxTopCount = topList.reduce((max, item) => Math.max(max, item.count), 0);
             document.getElementById('top-domains-list').innerHTML = topList.slice(0, 10).map((item) => {
@@ -188,9 +266,9 @@
                         <div class="bg-blue-400 h-full rounded-full transition-all duration-700" style="width: ${percent}%"></div>
                     </div>
                 </div>`;
-            }).join('') || '<div class="text-center text-gray-400 text-xs mt-4">暂无数据</div>';
+            }).join('') || '<div class="text-center text-gray-400 text-xs mt-4">闂備礁鎼Λ妤呭磹閻熸嫈娑㈠Χ婢跺﹥鐎梺缁橆殔閻楀棛绮?/div>';
 
-            // 渲染 实时域名
+            // 婵犵數鍋為幐绋款嚕閸洘鍋?闂佽楠稿﹢閬嶅磻閻愬樊娓婚柛宀€鍋涢弰銉╂煟閺冨牊鏁遍柛?
             const rtList = domainData.realtime && domainData.realtime.length > 0 ? domainData.realtime : (domainData.recent || []);
             document.getElementById('recent-domains-list').innerHTML = rtList.slice(0, 25).map((item) => `
                 <div class="flex items-center justify-between px-2 py-1.5 hover:bg-teal-50 rounded-md group transition-colors">
@@ -198,19 +276,21 @@
                         <div class="w-1.5 h-1.5 rounded-full bg-gray-300 group-hover:bg-teal-400"></div>
                         <div class="text-[11px] text-gray-600 truncate font-mono">${item.domain}</div>
                     </div>
-                    <div class="text-[10px] text-gray-400 font-mono">${item.count}ms</div>
-                </div>`).join('') || '<div class="text-center text-gray-400 text-xs mt-4">暂无活动</div>';
+                    <div class="text-[10px] text-gray-400 font-mono">${item.count}</div>
+                </div>`).join('') || '<div class="text-center text-gray-400 text-xs mt-4">闂備礁鎼Λ妤呭磹閻熸嫈娑㈠Χ閸氥倛娅ｉ幏鐘诲箵閹?/div>';
         }
 
         const OAF_COLORS = ['bg-orange-500','bg-green-500','bg-blue-500','bg-pink-500','bg-yellow-400','bg-indigo-500'];
         async function loadActiveApps() {
-            // 通过获取原有 OAF 接口数据兼容活跃应用展示
-            const oafData = await apiRequest('oaf/status');
+            // Active app list now comes from unified databus payload.
+            const databus = await apiRequest('databus');
             const appsElement = document.getElementById('active-apps-container');
             const cntElement = document.getElementById('app-count');
+            const appState = pickActiveAppState(databus, null);
+            const apps = appState.apps || [];
+            const classStats = appState.classStats || [];
             
-            if (oafData && oafData.active_apps && oafData.active_apps.length > 0) {
-                const apps = oafData.active_apps;
+            if (apps.length > 0) {
                 if (cntElement) cntElement.innerText = apps.length;
                 appsElement.innerHTML = apps.slice(0, 12).map((app, i) => {
                     const color = OAF_COLORS[i % OAF_COLORS.length];
@@ -228,20 +308,20 @@
                 `}).join('');
             } else {
                 if (cntElement) cntElement.innerText = "0";
-                appsElement.innerHTML = '<div class="w-full text-center text-gray-400 text-xs mt-4">无活跃应用或未开启 OAF</div>';
+                appsElement.innerHTML = '<div class="w-full text-center text-gray-400 text-xs mt-4">No active app data</div>';
             }
             
-            // 更新应用分布饼图，兼容 OAF 的分类耗时数据
-            if (typeof donutChart !== 'undefined' && oafData && oafData.class_stats && oafData.class_stats.length > 0) {
+            // Update app distribution chart using normalized class stats from databus.
+            if (typeof donutChart !== 'undefined' && classStats.length > 0) {
                 donutChart.setOption({
                     series: [{
-                        data: oafData.class_stats.map(s => ({ name: s.name, value: Number(s.time) || 0 }))
+                        data: classStats.map(s => ({ name: s.name, value: Number(s.time) || 0 }))
                     }]
                 });
             }
         }
 
-        // 初始化图表
+        // Initialize charts
         const hasEcharts = typeof echarts !== 'undefined';
         const emptyChart = { setOption: function () {}, resize: function () {} };
         if (!hasEcharts) console.error('[Dashboard] echarts is not loaded.');
@@ -260,13 +340,13 @@
                      { name: 'Up', type: 'line', smooth: true, symbol: 'none', itemStyle: { color: '#10b981' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(16, 185, 129, 0.3)' }, { offset: 1, color: 'rgba(16, 185, 129, 0.01)' }]) }, data: [] }]
         });
 
-        // 环形图 (应用分布)
+        // 闂備胶绮划鐘诲垂娴煎瓨鍤嬪ù鍏兼綑閻?(闂佸湱鍘ч悺銊ヮ潖婵犳艾鏋侀柕鍫濐槸缁€鍡涙煕閳╁喚娈樻い?
         const donutChart = hasEcharts ? echarts.init(document.getElementById('app-dist-chart')) : emptyChart;
         donutChart.setOption({
             tooltip: { trigger: 'item' },
             color: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#cbd5e1'],
             series: [{
-                name: '应用分布',
+                name: 'App Distribution',
                 type: 'pie',
                 radius: ['55%', '85%'],
                 avoidLabelOverlap: false,
@@ -274,30 +354,39 @@
                 label: { show: false, position: 'center' },
                 emphasis: { label: { show: true, fontSize: 18, fontWeight: 'bold', formatter: '{d}%' } },
                 labelLine: { show: false },
-                data: [{ value: 100, name: '等待统计数据' }]
+                data: [{ value: 100, name: 'Waiting for app stats' }]
             }]
         });
 
         window.addEventListener('resize', () => { lineChart.resize(); donutChart.resize(); });
 
-        let tD = [], dD = [], uD = [], pTx = 0, pRx = 0, pT = 0;
+        let tD = [], dD = [], uD = [], trafficState = null;
         async function refresh() {
             const sys = await apiRequest('sysinfo');
             if(sys) updateCpuMem(sys);
             const tr = await apiRequest('traffic');
             if (tr) {
                 const now = Date.now();
-                if (pT !== 0) {
-                    const diff = (now - pT) / 1000;
-                    if (diff > 0) {
-                        const uS = Math.max(0, (tr.tx_bytes - pTx) / diff);
-                        const dS = Math.max(0, (tr.rx_bytes - pRx) / diff);
-                        const tm = new Date().toTimeString().split(' ')[0];
-                        tD.push(tm); dD.push(dS); uD.push(uS);
-                        if (tD.length > 20) { tD.shift(); dD.shift(); uD.shift(); }
-                        lineChart.setOption({ xAxis: { data: tD }, series: [{ data: dD }, { data: uD }] });
+                const sample = deriveTrafficSnapshot(tr, trafficState, now);
+                const uS = Math.max(0, Number(sample.txRate) || 0);
+                const dS = Math.max(0, Number(sample.rxRate) || 0);
+                const tm = new Date().toTimeString().split(' ')[0];
+
+                if (tD.length > 0 && tD[tD.length - 1] === tm) {
+                    dD[dD.length - 1] = dS;
+                    uD[uD.length - 1] = uS;
+                } else {
+                    tD.push(tm);
+                    dD.push(dS);
+                    uD.push(uS);
+                    if (tD.length > 20) {
+                        tD.shift();
+                        dD.shift();
+                        uD.shift();
                     }
                 }
+                lineChart.setOption({ xAxis: { data: tD }, series: [{ data: dD }, { data: uD }] });
+                trafficState = sample.nextState;
                 
                 const fmtTx = formatBytes(tr.tx_bytes).split(' ');
                 const fmtRx = formatBytes(tr.rx_bytes).split(' ');
@@ -306,10 +395,8 @@
                 if(document.getElementById('summary-rx')) document.getElementById('summary-rx').innerText = fmtRx[0];
                 if(document.getElementById('summary-rx-unit')) document.getElementById('summary-rx-unit').innerText = fmtRx[1];
 
-                document.getElementById('total-up').innerText = formatBytes(uD.length ? uD[uD.length-1] : 0) + '/s';
-                document.getElementById('total-down').innerText = formatBytes(dD.length ? dD[dD.length-1] : 0) + '/s';
-
-                pTx = tr.tx_bytes; pRx = tr.rx_bytes; pT = now;
+                document.getElementById('total-up').innerText = formatBytes(uS) + '/s';
+                document.getElementById('total-down').innerText = formatBytes(dS) + '/s';
             }
         }
 

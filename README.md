@@ -92,3 +92,40 @@ This package now ships a built-in OAF feature library:
   - If `/etc/appfilter/feature.cfg` already exists (for example, user uploaded a newer library), package upgrade will not overwrite it.
 
 Manual upload update (`.bin`/`.zip`) is still supported through the existing LuCI upload button.
+
+## Optional kmod backend (`kmod-dashboard-monitor`)
+
+This repository now includes an optional kernel backend at:
+
+- `kmod-dashboard-monitor/`
+- proc output: `/proc/dashboard_monitor/stats`
+- traffic accounting: IPv4 + IPv6 (pre/postrouting hooks)
+
+The LuCI controller (`/admin/dashboard/api/traffic` and `databus.interface_traffic`) will now:
+
+1. read `/proc/dashboard_monitor/stats` first when available
+2. fallback to userspace `/sys/class/net/*/statistics` sampling when the module is absent
+
+Proc output format uses `key=value` lines, for example:
+
+```text
+source=kmod-dashboard-monitor
+interface=pppoe-wan
+sampled_at=1713859200
+tx_bytes=123456
+rx_bytes=654321
+tx_rate=1024
+rx_rate=4096
+```
+
+To build the kmod in OpenWrt SDK/buildroot:
+
+```bash
+make package/kmod-dashboard-monitor/compile V=s
+```
+
+If you want to pin a specific interface, load module with parameter:
+
+```bash
+insmod dashboard_monitor ifname=pppoe-wan
+```

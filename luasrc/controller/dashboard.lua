@@ -94,6 +94,8 @@ end
 
 local DOMAIN_CACHE_FILE = "/tmp/.dashboard_domain_cache.json"
 local DOMAIN_CACHE_TTL = 180
+local TRAFFIC_STATE_FILE = "/tmp/.dashboard_traffic_state.json"
+local KMOD_TRAFFIC_FILE = "/proc/dashboard_monitor/stats"
 
 local function save_domain_cache(source, domains, realtime_rows, realtime_source)
     if trim(source or "") == "" or type(domains) ~= "table" or #domains == 0 then
@@ -159,6 +161,64 @@ local function load_domain_cache()
         realtime_source = trim(decoded.realtime_source or "cache"),
         domains = decoded.domains,
         realtime = type(decoded.realtime) == "table" and decoded.realtime or {},
+    }
+end
+
+local function load_json_file(path)
+    local raw = fs.readfile(path)
+    if not raw or raw == "" then
+        return {}
+    end
+
+    local decoded = jsonc.parse(raw)
+    return type(decoded) == "table" and decoded or {}
+end
+
+local function save_json_file(path, payload)
+    local encoded = jsonc.stringify(payload or {})
+    if encoded and encoded ~= "" then
+        fs.writefile(path, encoded)
+    end
+end
+
+local function read_kmod_traffic()
+    local raw = read_all(KMOD_TRAFFIC_FILE)
+    if not raw or raw == "" then
+        return nil
+    end
+
+    local parsed = {}
+    for line in raw:gmatch("[^\n]+") do
+        local key, value = line:match("^([%w_]+)%s*=%s*(.-)%s*$")
+        if key and value then
+            parsed[key] = value
+        end
+    end
+
+    local tx_bytes = tonumber(parsed.tx_bytes or "") or 0
+    local rx_bytes = tonumber(parsed.rx_bytes or "") or 0
+    local tx_rate = tonumber(parsed.tx_rate or "") or 0
+    local rx_rate = tonumber(parsed.rx_rate or "") or 0
+    local sampled_at = tonumber(parsed.sampled_at or "") or os.time()
+    local iface = trim(parsed.interface or "")
+
+    if iface == "" then
+        iface = "all"
+    end
+
+    if tx_bytes < 0 then tx_bytes = 0 end
+    if rx_bytes < 0 then rx_bytes = 0 end
+    if tx_rate < 0 then tx_rate = 0 end
+    if rx_rate < 0 then rx_rate = 0 end
+
+    return {
+        tx_bytes = tx_bytes,
+        rx_bytes = rx_bytes,
+        tx_rate = tx_rate,
+        rx_rate = rx_rate,
+        sampled_at = sampled_at,
+        interface = iface,
+        source = trim(parsed.source or "kmod-dashboard-monitor"),
     }
 end
 
@@ -1045,16 +1105,28 @@ end
 -- =====================================================================
 
 local function build_traffic_data()
-    local wan   = util.ubus("network.interface.wan", "status") or {}
-    local l3dev = wan.l3_device or wan.device or ""
+    local kmod_data = read_kmod_traffic()
+    if type(kmod_data) == "table" then
+        return kmod_data
+    end
+
+    local uplink = resolve_uplink_status()
+    local status = type(uplink.status) == "table" and uplink.status or {}
+    local l3dev = trim(status.l3_device or status.device or "")
+
+    if l3dev == "" then
+        l3dev = trim(read_default_route_device())
+    end
 
     if l3dev == "" then
         local dump = util.ubus("network.interface", "dump", {}) or {}
-        for _, e in ipairs(dump.interface or dump.interfaces or {}) do
-            local n = e.interface or ""
-            if n ~= "loopback" and n ~= "lan" and not n:match("^lan%d") then
-                l3dev = e.l3_device or e.device or ""
-                if l3dev ~= "" then break end
+        for _, e in ipairs(to_array(dump.interface or dump.interfaces or {})) do
+            local n = trim(e.interface or "")
+            if n ~= "" and n ~= "loopback" and n ~= "lan" and not n:match("^lan%d") then
+                l3dev = trim(e.l3_device or e.device or "")
+                if l3dev ~= "" then
+                    break
+                end
             end
         end
     end
@@ -1066,13 +1138,56 @@ local function build_traffic_data()
         rx = tonumber(read_line(base .. "rx_bytes") or "0") or 0
     end
 
-    return { tx_bytes = tx, rx_bytes = rx, interface = l3dev }
+    local now = os.time()
+    local state = load_json_file(TRAFFIC_STATE_FILE)
+    local prev_if = trim(state.interface or "")
+    local prev_ts = tonumber(state.timestamp) or 0
+    local prev_tx = tonumber(state.tx_bytes) or 0
+    local prev_rx = tonumber(state.rx_bytes) or 0
+    local tx_rate, rx_rate = 0, 0
+
+    if l3dev ~= "" and prev_if == l3dev and now > prev_ts then
+        local dt = now - prev_ts
+        local tx_delta = tx - prev_tx
+        local rx_delta = rx - prev_rx
+        if tx_delta >= 0 then
+            tx_rate = math.floor(tx_delta / dt)
+        end
+        if rx_delta >= 0 then
+            rx_rate = math.floor(rx_delta / dt)
+        end
+    end
+
+    save_json_file(TRAFFIC_STATE_FILE, {
+        timestamp = now,
+        interface = l3dev,
+        tx_bytes = tx,
+        rx_bytes = rx,
+    })
+
+    return {
+        tx_bytes = tx,
+        rx_bytes = rx,
+        tx_rate = tx_rate,
+        rx_rate = rx_rate,
+        sampled_at = now,
+        interface = l3dev,
+        source = "userspace-sysfs",
+    }
 end
 
 local function api_traffic()
     local data = build_traffic_data()
     http.prepare_content("application/json")
-    http.write(jsonc.stringify({ tx_bytes = data.tx_bytes, rx_bytes = data.rx_bytes }))
+    http.write(jsonc.stringify({
+        tx_bytes = data.tx_bytes,
+        rx_bytes = data.rx_bytes,
+        tx_rate = data.tx_rate,
+        rx_rate = data.rx_rate,
+        sampled_at = data.sampled_at,
+        interface = data.interface,
+        source = data.source,
+    }))
 end
 
 -- =====================================================================
@@ -1458,6 +1573,10 @@ local function build_dashboard_databus()
             interface = traffic.interface or "",
             tx_bytes = traffic.tx_bytes or 0,
             rx_bytes = traffic.rx_bytes or 0,
+            tx_rate = traffic.tx_rate or 0,
+            rx_rate = traffic.rx_rate or 0,
+            sampled_at = traffic.sampled_at or 0,
+            source = traffic.source or "userspace-sysfs",
         },
         realtime_urls = {
             source = domain_activity.source,
