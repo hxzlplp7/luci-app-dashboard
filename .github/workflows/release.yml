@@ -60,7 +60,7 @@ jobs:
             packages: kmod-dashboard-monitor
           - sdk: mediatek-filogic-24.10.5
             primary: true
-            packages: luci-app-dashboard kmod-dashboard-monitor
+            packages: luci-app-dashboard luci-i18n-dashboard-zh-cn kmod-dashboard-monitor
 
     steps:
       - name: Checkout
@@ -110,6 +110,7 @@ jobs:
 
           if [ "${{ matrix.primary }}" = "true" ]; then
             ls dist/luci-app-dashboard_*.ipk >/dev/null 2>&1 || (echo "Missing luci-app-dashboard ipk" && exit 1)
+            ls dist/luci-i18n-dashboard-zh-cn_*.ipk >/dev/null 2>&1 || (echo "Missing luci-i18n-dashboard-zh-cn ipk" && exit 1)
           fi
 
       - name: Upload Artifacts
@@ -140,6 +141,7 @@ jobs:
           find dist -maxdepth 1 -type f -name '*.ipk' | sort
 
           ls dist/luci-app-dashboard_*.ipk >/dev/null 2>&1 || (echo "Missing luci-app-dashboard ipk in release stage" && exit 1)
+          ls dist/luci-i18n-dashboard-zh-cn_*.ipk >/dev/null 2>&1 || (echo "Missing luci-i18n-dashboard-zh-cn ipk in release stage" && exit 1)
           ls dist/kmod-dashboard-monitor_*.ipk >/dev/null 2>&1 || (echo "Missing kmod-dashboard-monitor ipk in release stage" && exit 1)
 
       - name: Create Release and Upload Assets
