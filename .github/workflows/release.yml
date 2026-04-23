@@ -13,20 +13,54 @@ permissions:
 
 env:
   PKG_NAME: luci-app-dashboard
-  PKG_LIST: luci-app-dashboard kmod-dashboard-monitor
-  PRIMARY_ARCH: x86_64-21.02.7
 
 jobs:
   build:
-    name: Build ${{ matrix.arch }}
+    name: Build ${{ matrix.sdk }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        arch:
-          - x86_64-21.02.7
-          - arm_cortex-a7_neon-vfpv4-21.02.7
-          - aarch64_cortex-a53-21.02.7
+        include:
+          - sdk: mediatek-filogic-23.05.0
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-23.05.1
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-23.05.2
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-23.05.3
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-23.05.4
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-23.05.5
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-23.05.6
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-24.10.0
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-24.10.1
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-24.10.2
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-24.10.3
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-24.10.4
+            primary: false
+            packages: kmod-dashboard-monitor
+          - sdk: mediatek-filogic-24.10.5
+            primary: true
+            packages: luci-app-dashboard kmod-dashboard-monitor
 
     steps:
       - name: Checkout
@@ -45,9 +79,9 @@ jobs:
       - name: Build Package
         uses: openwrt/gh-action-sdk@main
         env:
-          ARCH: ${{ matrix.arch }}
+          ARCH: ${{ matrix.sdk }}
           FEED_DIR: ${{ github.workspace }}/.feed
-          PACKAGES: ${{ env.PKG_LIST }}
+          PACKAGES: ${{ matrix.packages }}
           NO_REFRESH_CHECK: true
 
       - name: Collect Release IPKs
@@ -59,26 +93,29 @@ jobs:
           echo "All built IPKs:"
           find bin -type f -name '*.ipk' | sort || true
 
-          if [ "${{ matrix.arch }}" = "${{ env.PRIMARY_ARCH }}" ]; then
+          if [ "${{ matrix.primary }}" = "true" ]; then
             find bin -type f -name 'luci-app-dashboard_*.ipk' -exec cp -f {} dist/ \;
             find bin -type f -name 'luci-i18n-dashboard-zh-cn_*.ipk' -exec cp -f {} dist/ \;
           fi
 
-          find bin -type f -name 'kmod-dashboard-monitor_*.ipk' -exec cp -f {} dist/ \;
+          while IFS= read -r file; do
+            base="$(basename "$file" .ipk)"
+            cp -f "$file" "dist/${base}_${{ matrix.sdk }}.ipk"
+          done < <(find bin -type f -name 'kmod-dashboard-monitor_*.ipk' | sort)
 
           echo "Release IPKs:"
           ls -lah dist || true
 
-          ls dist/kmod-dashboard-monitor_*.ipk >/dev/null 2>&1 || (echo "Missing kmod-dashboard-monitor ipk for ${{ matrix.arch }}" && exit 1)
+          ls dist/kmod-dashboard-monitor_*_${{ matrix.sdk }}.ipk >/dev/null 2>&1 || (echo "Missing kmod-dashboard-monitor ipk for ${{ matrix.sdk }}" && exit 1)
 
-          if [ "${{ matrix.arch }}" = "${{ env.PRIMARY_ARCH }}" ]; then
+          if [ "${{ matrix.primary }}" = "true" ]; then
             ls dist/luci-app-dashboard_*.ipk >/dev/null 2>&1 || (echo "Missing luci-app-dashboard ipk" && exit 1)
           fi
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dashboard-packages-${{ matrix.arch }}
+          name: dashboard-packages-${{ matrix.sdk }}
           path: dist/*.ipk
           if-no-files-found: error
 
