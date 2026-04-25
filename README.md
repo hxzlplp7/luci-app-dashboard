@@ -1,51 +1,51 @@
 # LuCI App Dashboard
 
-OpenWrt/LEDE dashboard for network status, traffic, devices, application activity, domain activity, and system information.
+这是一个面向 OpenWrt/LEDE 的仪表盘插件，提供网络状态、流量、在线设备、应用活跃度、域名活跃度和系统信息等展示能力。
 
-## Installation
+## 安装
 
-Recommended online install:
+推荐使用在线安装：
 
 ```sh
 sh -c "$(wget -O- https://github.com/hxzlplp7/luci-app-dashboard/releases/latest/download/install.sh)"
 ```
 
-Install a fixed release:
+安装指定版本：
 
 ```sh
 wget -O /tmp/install-dashboard.sh https://github.com/hxzlplp7/luci-app-dashboard/releases/latest/download/install.sh
 VERSION=v0.0.1 sh /tmp/install-dashboard.sh
 ```
 
-The installer downloads and installs:
+安装脚本会自动下载并安装：
 
 - `luci-app-dashboard.ipk`
 - `luci-i18n-dashboard-zh-cn.ipk`
-- `dashboard-core-ARCH` (built from the `dashboard-core/` stage-one backend during release)
+- `dashboard-core-ARCH`（发布时由 `dashboard-core/` 后端一期源码构建）
 
-If architecture detection does not match your device, set it explicitly:
+如果自动识别架构不符合你的设备，请手动指定：
 
 ```sh
 DASHBOARD_CORE_ARCH=aarch64_cortex-a53 sh /tmp/install-dashboard.sh
 ```
 
-## Backend Contract
+## 后端约定
 
-`dashboard-core` is the required backend binary. It is installed to `/usr/bin/dashboard-core` and managed by `/etc/init.d/dashboard-core`.
+`dashboard-core` 是必须的后端二进制，安装路径为 `/usr/bin/dashboard-core`，由 `/etc/init.d/dashboard-core` 管理。
 
-The service listens only on localhost:
+后端服务仅监听本机回环地址：
 
 ```text
 127.0.0.1:19090
 ```
 
-LuCI proxies this backend through the authenticated dashboard API. The browser should call LuCI, not the backend port directly:
+前端通过 LuCI 认证后的 API 间接访问后端，不应直接访问后端端口：
 
 ```text
 /admin/dashboard/api/databus
 ```
 
-`GET /databus` from `dashboard-core` must return a JSON object containing:
+`dashboard-core` 的 `GET /databus` 必须返回 JSON，包含以下字段：
 
 - `status`
 - `system_status`
@@ -57,7 +57,7 @@ LuCI proxies this backend through the authenticated dashboard API. The browser s
 - `realtime_urls`
 - `devices`
 
-`interface_traffic` should include:
+`interface_traffic` 字段示例：
 
 ```json
 {
@@ -71,7 +71,7 @@ LuCI proxies this backend through the authenticated dashboard API. The browser s
 }
 ```
 
-`domains` should include:
+`domains` 字段示例：
 
 ```json
 {
@@ -82,20 +82,20 @@ LuCI proxies this backend through the authenticated dashboard API. The browser s
 }
 ```
 
-## Reverse Proxy
+## 反向代理
 
-For public reverse proxy deployments, expose only the LuCI dashboard/API path. Do not expose `127.0.0.1:19090`.
+如果你把页面反代到公网，只暴露 LuCI 的 dashboard/API 路径即可，不要暴露 `127.0.0.1:19090`。
 
-Proxy one of these LuCI paths back to the router:
+可反代以下任一路径到路由器：
 
 ```text
 /cgi-bin/luci/admin/dashboard/api/databus
 /admin/dashboard/api/databus
 ```
 
-## Build
+## 编译
 
-Put this repository under the OpenWrt SDK `package` directory:
+将仓库放到 OpenWrt SDK 的 `package` 目录下：
 
 ```sh
 git clone https://github.com/hxzlplp7/luci-app-dashboard.git package/luci-app-dashboard
@@ -104,23 +104,23 @@ git clone https://github.com/hxzlplp7/luci-app-dashboard.git package/luci-app-da
 make package/luci-app-dashboard/compile V=s
 ```
 
-The GitHub release workflow builds the LuCI packages and the stage-one backend, then publishes stable asset names for the installer:
+GitHub Release 流程会构建 LuCI 包和后端一期，并发布给安装脚本使用的稳定文件名：
 
 - `install.sh`
 - `luci-app-dashboard.ipk`
 - `luci-i18n-dashboard-zh-cn.ipk`
 - `dashboard-core-ARCH`
 
-## OAF Feature Library
+## OAF 特征库
 
-The LuCI package ships a built-in OAF-compatible feature library:
+LuCI 包内置 OAF 兼容特征库：
 
-- Default bundle: `feature3.0_cn_20250929-free-compat` (`v25.9.29`)
-- Built-in path: `/usr/share/luci-app-dashboard/oaf-default/feature.cfg`
-- Icon path: `/www/luci-static/resources/app_icons/`
+- 默认特征包：`feature3.0_cn_20250929-free-compat`（`v25.9.29`）
+- 内置路径：`/usr/share/luci-app-dashboard/oaf-default/feature.cfg`
+- 图标路径：`/www/luci-static/resources/app_icons/`
 
-On first install, the package initializes `/etc/appfilter/feature.cfg` if it does not already exist. Package upgrades do not overwrite an existing user feature library.
+首次安装时，如果 `/etc/appfilter/feature.cfg` 不存在，程序会自动初始化该文件。升级时不会覆盖用户已存在的特征库。
 
-## License
+## 许可证
 
-Apache License 2.0. See `LICENSE`.
+Apache License 2.0，详见 `LICENSE`。
