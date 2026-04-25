@@ -61,6 +61,7 @@ jobs:
 
           cp -f "$app_ipk" dist/luci-app-dashboard.ipk
           cp -f "$i18n_ipk" dist/luci-i18n-dashboard-zh-cn.ipk
+          cp -f "$core_ipk" dist/dashboard-core.ipk
           cp -f install.sh dist/install.sh
 
           core_arch="$(basename "$core_ipk" .ipk | sed -E 's/^dashboard-core_[^_]+_(.+)$/\1/')"
@@ -146,6 +147,7 @@ jobs:
           test -f dist/install.sh || (echo "Missing install.sh" && exit 1)
           test -f dist/luci-app-dashboard.ipk || (echo "Missing luci-app-dashboard.ipk" && exit 1)
           test -f dist/luci-i18n-dashboard-zh-cn.ipk || (echo "Missing luci-i18n-dashboard-zh-cn.ipk" && exit 1)
+          test -f dist/dashboard-core.ipk || (echo "Missing dashboard-core.ipk" && exit 1)
           compgen -G "dist/dashboard-core-*" >/dev/null || (echo "Missing dashboard-core assets" && exit 1)
           ! compgen -G "dist/kmod-dashboard-monitor_*.ipk" >/dev/null || (echo "kmod assets must not be released" && exit 1)
 

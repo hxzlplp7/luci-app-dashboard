@@ -120,40 +120,69 @@ EOF
     chmod 755 "$CORE_SERVICE"
 }
 
+cleanup_legacy_kmod() {
+    legacy_pkg="kmod-dashboard-monitor"
+    info_dir="/usr/lib/opkg/info"
+    postinst="${info_dir}/${legacy_pkg}.postinst"
+
+    if opkg status "$legacy_pkg" >/dev/null 2>&1 || [ -e "$postinst" ]; then
+        echo "Detected legacy package: ${legacy_pkg}, attempting cleanup."
+        [ -e "$postinst" ] && chmod 755 "$postinst" 2>/dev/null || true
+        opkg configure "$legacy_pkg" >/dev/null 2>&1 || true
+        opkg remove "$legacy_pkg" >/dev/null 2>&1 || true
+    fi
+}
+
 ARCH=""
 CORE_ASSET=""
-CANDIDATE_ARCHES="$(detect_arch_candidates)"
+CORE_IPK_ASSET="dashboard-core.ipk"
+CORE_IPK_FILE="${INSTALL_DIR}/${CORE_IPK_ASSET}"
+CORE_MODE="binary"
 
 echo "Using release: ${VERSION}"
-echo "Backend architecture candidates: $(printf '%s' "$CANDIDATE_ARCHES" | tr '\n' ' ')"
 
 rm -rf "$INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 
 download "${BASE_URL}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-app-dashboard.ipk"
 download "${BASE_URL}/luci-i18n-dashboard-zh-cn.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"
-
-for candidate in $CANDIDATE_ARCHES; do
-    candidate_asset="dashboard-core-${candidate}"
-    if download "${BASE_URL}/${candidate_asset}" "${INSTALL_DIR}/${candidate_asset}" 1; then
-        ARCH="$candidate"
-        CORE_ASSET="$candidate_asset"
-        break
-    fi
-done
-
-if [ -z "$CORE_ASSET" ]; then
-    echo "No compatible dashboard-core asset found for candidates: ${CANDIDATE_ARCHES}" >&2
-    echo "Set DASHBOARD_CORE_ARCH explicitly, then rerun installer." >&2
-    exit 1
+if download "${BASE_URL}/${CORE_IPK_ASSET}" "${CORE_IPK_FILE}" 1; then
+    CORE_MODE="ipk"
 fi
 
-echo "Using backend architecture: ${ARCH}"
+if [ "$CORE_MODE" = "ipk" ]; then
+    echo "Using backend package asset: ${CORE_IPK_ASSET}"
+else
+    CANDIDATE_ARCHES="$(detect_arch_candidates)"
+    echo "Backend architecture candidates: $(printf '%s' "$CANDIDATE_ARCHES" | tr '\n' ' ')"
 
-cp -f "${INSTALL_DIR}/${CORE_ASSET}" "$CORE_BIN"
-chmod 755 "$CORE_BIN"
+    for candidate in $CANDIDATE_ARCHES; do
+        candidate_asset="dashboard-core-${candidate}"
+        if download "${BASE_URL}/${candidate_asset}" "${INSTALL_DIR}/${candidate_asset}" 1; then
+            ARCH="$candidate"
+            CORE_ASSET="$candidate_asset"
+            break
+        fi
+    done
+
+    if [ -z "$CORE_ASSET" ]; then
+        echo "No compatible dashboard-core asset found for candidates: ${CANDIDATE_ARCHES}" >&2
+        echo "Set DASHBOARD_CORE_ARCH explicitly, then rerun installer." >&2
+        exit 1
+    fi
+
+    echo "Using backend architecture: ${ARCH}"
+    cp -f "${INSTALL_DIR}/${CORE_ASSET}" "$CORE_BIN"
+    chmod 755 "$CORE_BIN"
+fi
+
 write_service
 
+cleanup_legacy_kmod
+if [ "$CORE_MODE" = "ipk" ]; then
+    opkg install "${CORE_IPK_FILE}"
+    chmod 755 "$CORE_BIN" 2>/dev/null || true
+fi
 opkg install "${INSTALL_DIR}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"
 
 "$CORE_SERVICE" enable
