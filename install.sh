@@ -22,20 +22,38 @@ fi
 download() {
     url="$1"
     dest="$2"
+    allow_fail="${3:-0}"
     rm -f "$dest"
 
     if command -v curl >/dev/null 2>&1; then
-        curl -fL --connect-timeout 15 --retry 2 -o "$dest" "$url"
+        if ! curl -fL --connect-timeout 15 --retry 2 -o "$dest" "$url"; then
+            rm -f "$dest"
+            [ "$allow_fail" = "1" ] && return 1
+            echo "Download failed: $url" >&2
+            exit 1
+        fi
     elif command -v wget >/dev/null 2>&1; then
-        wget -T 30 -O "$dest" "$url"
+        if ! wget -T 30 -O "$dest" "$url"; then
+            rm -f "$dest"
+            [ "$allow_fail" = "1" ] && return 1
+            echo "Download failed: $url" >&2
+            exit 1
+        fi
     elif command -v uclient-fetch >/dev/null 2>&1; then
-        uclient-fetch -O "$dest" "$url"
+        if ! uclient-fetch -O "$dest" "$url"; then
+            rm -f "$dest"
+            [ "$allow_fail" = "1" ] && return 1
+            echo "Download failed: $url" >&2
+            exit 1
+        fi
     else
         echo "Missing downloader: install curl, wget, or uclient-fetch." >&2
         exit 1
     fi
 
     if [ ! -s "$dest" ]; then
+        rm -f "$dest"
+        [ "$allow_fail" = "1" ] && return 1
         echo "Download failed or empty file: $url" >&2
         exit 1
     fi
@@ -68,6 +86,20 @@ detect_arch() {
     esac
 }
 
+detect_arch_candidates() {
+    primary_arch="$(detect_arch)"
+
+    case "$primary_arch" in
+        aarch64_generic|aarch64|arm64)
+            printf '%s\n' "$primary_arch"
+            printf '%s\n' "aarch64_cortex-a53"
+            ;;
+        *)
+            printf '%s\n' "$primary_arch"
+            ;;
+    esac
+}
+
 write_service() {
     cat > "$CORE_SERVICE" <<EOF
 #!/bin/sh /etc/rc.common
@@ -88,18 +120,35 @@ EOF
     chmod 755 "$CORE_SERVICE"
 }
 
-ARCH="$(detect_arch)"
-CORE_ASSET="dashboard-core-${ARCH}"
+ARCH=""
+CORE_ASSET=""
+CANDIDATE_ARCHES="$(detect_arch_candidates)"
 
 echo "Using release: ${VERSION}"
-echo "Using backend architecture: ${ARCH}"
+echo "Backend architecture candidates: $(printf '%s' "$CANDIDATE_ARCHES" | tr '\n' ' ')"
 
 rm -rf "$INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 
 download "${BASE_URL}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-app-dashboard.ipk"
 download "${BASE_URL}/luci-i18n-dashboard-zh-cn.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"
-download "${BASE_URL}/${CORE_ASSET}" "${INSTALL_DIR}/${CORE_ASSET}"
+
+for candidate in $CANDIDATE_ARCHES; do
+    candidate_asset="dashboard-core-${candidate}"
+    if download "${BASE_URL}/${candidate_asset}" "${INSTALL_DIR}/${candidate_asset}" 1; then
+        ARCH="$candidate"
+        CORE_ASSET="$candidate_asset"
+        break
+    fi
+done
+
+if [ -z "$CORE_ASSET" ]; then
+    echo "No compatible dashboard-core asset found for candidates: ${CANDIDATE_ARCHES}" >&2
+    echo "Set DASHBOARD_CORE_ARCH explicitly, then rerun installer." >&2
+    exit 1
+fi
+
+echo "Using backend architecture: ${ARCH}"
 
 cp -f "${INSTALL_DIR}/${CORE_ASSET}" "$CORE_BIN"
 chmod 755 "$CORE_BIN"
