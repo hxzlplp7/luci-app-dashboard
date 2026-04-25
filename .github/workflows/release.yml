@@ -66,7 +66,11 @@ jobs:
           core_arch="$(basename "$core_ipk" .ipk | sed -E 's/^dashboard-core_[^_]+_(.+)$/\1/')"
           test -n "$core_arch" || (echo "Cannot parse dashboard-core architecture from $core_ipk" && exit 1)
 
-          core_bin="$(find . -type f -name dashboard-core -printf '%s %p\n' | sort -nr | awk 'NR == 1 { $1=\"\"; sub(/^ /, \"\"); print }')"
+          core_bin="$(find . -type f \( \
+            -path '*/dashboard-core-*/dashboard-core' -o \
+            -path '*/ipkg-*/dashboard-core/usr/bin/dashboard-core' -o \
+            -path '*/.pkgdir/dashboard-core/usr/bin/dashboard-core' \
+          \) | sort | head -n 1)"
           test -n "$core_bin" || (echo "Missing compiled dashboard-core binary" && exit 1)
           cp -f "$core_bin" "dist/dashboard-core-${core_arch}"
 
