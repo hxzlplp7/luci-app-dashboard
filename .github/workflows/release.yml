@@ -73,7 +73,7 @@ jobs:
           extract_ok=0
           extract_from_tar() {
             archive="$1"
-            entry="$(tar -tf "$archive" 2>/dev/null | grep -E '(^|/)dashboard-core$' | head -n 1 || true)"
+            entry="$(tar -tf "$archive" 2>/dev/null | grep -E '(^|/)usr/bin/dashboard-core$' | head -n 1 || true)"
             if [ -z "$entry" ]; then
               return 1
             fi
@@ -114,6 +114,8 @@ jobs:
 
           rm -rf "$core_tmp"
           test "$extract_ok" -eq 1 || (echo "Cannot extract dashboard-core from $core_ipk" && file "$core_ipk" && exit 1)
+          core_size="$(wc -c < "$core_out")"
+          test "$core_size" -gt 4096 || (echo "Extracted dashboard-core looks too small: ${core_size} bytes" && exit 1)
 
           chmod 755 dist/install.sh dist/dashboard-core-*
 
