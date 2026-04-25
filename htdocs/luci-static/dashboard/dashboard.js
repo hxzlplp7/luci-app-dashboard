@@ -80,7 +80,7 @@
         const getMockData = (endpoint) => {
             switch(endpoint) {
                 case 'netinfo': return { wanStatus: 'up', wanIp: '100.64.12.34', lanIp: '192.168.100.1', dns: ['202.103.24.68', '202.103.44.150'], network_uptime_raw: 445800, publicIp: '1.2.3.4', publicCountry: 'Local' };
-                case 'sysinfo': return { model: '缂傚倷鑳堕搹搴ㄥ垂閹惰В鈧牠宕堕埡鍐╋紡闂佺鍕垫闁哄棙娲熼幃?闂備胶顭堥鍛洪敃鍌氭辈闁绘梻鍘х粻?', firmware: 'iStoreOS 24.10.2', kernel: '6.6.93', temp: 40, systime_raw: Math.floor(Date.now() / 1000), uptime_raw: 84942, cpuUsage: 3, memUsage: 12 };
+                case 'sysinfo': return { model: '仅用于本地测试', firmware: 'iStoreOS 24.10.2', kernel: '6.6.93', temp: 40, systime_raw: Math.floor(Date.now() / 1000), uptime_raw: 84942, cpuUsage: 3, memUsage: 12 };
                 case 'traffic':
                     mockTx += Math.floor(Math.random() * 2000000);
                     mockRx += Math.floor(Math.random() * 15000000);
@@ -296,7 +296,7 @@
             document.getElementById('domain-source').innerText = formatSourceLabel(domainData.source);
             document.getElementById('realtime-domain-source').innerText = formatSourceLabel(domainData.realtime_source);
 
-            // 婵犵數鍋為幐绋款嚕閸洘鍋?闂備胶绮崺鍫ュ矗閸愩剮娑㈩敆閸曨偅妲梺缁樻閺€閬嶅磹?
+            // 渲染热门域名列表
             const topList = domainData.top || [];
             const maxTopCount = topList.reduce((max, item) => Math.max(max, item.count), 0);
             document.getElementById('top-domains-list').innerHTML = topList.slice(0, 10).map((item) => {
@@ -311,9 +311,9 @@
                         <div class="bg-blue-400 h-full rounded-full transition-all duration-700" style="width: ${percent}%"></div>
                     </div>
                 </div>`;
-            }).join('') || '<div class="text-center text-gray-400 text-xs mt-4">闂備礁鎼Λ妤呭磹閻熸嫈娑㈠Χ婢跺﹥鐎梺缁橆殔閻楀棛绮?/div>';
+            }).join('') || '<div class="text-center text-gray-400 text-xs mt-4">暂无热门域名数据</div>';
 
-            // 婵犵數鍋為幐绋款嚕閸洘鍋?闂佽楠稿﹢閬嶅磻閻愬樊娓婚柛宀€鍋涢弰銉╂煟閺冨牊鏁遍柛?
+            // 渲染最近/实时域名列表
             const rtList = domainData.realtime && domainData.realtime.length > 0 ? domainData.realtime : (domainData.recent || []);
             document.getElementById('recent-domains-list').innerHTML = rtList.slice(0, 25).map((item) => `
                 <div class="flex items-center justify-between px-2 py-1.5 hover:bg-teal-50 rounded-md group transition-colors">
@@ -322,7 +322,7 @@
                         <div class="text-[11px] text-gray-600 truncate font-mono">${item.domain}</div>
                     </div>
                     <div class="text-[10px] text-gray-400 font-mono">${item.count}</div>
-                </div>`).join('') || '<div class="text-center text-gray-400 text-xs mt-4">闂備礁鎼Λ妤呭磹閻熸嫈娑㈠Χ閸氥倛娅ｉ幏鐘诲箵閹?/div>';
+                </div>`).join('') || '<div class="text-center text-gray-400 text-xs mt-4">暂无实时域名数据</div>';
         }
 
         const OAF_COLORS = ['bg-orange-500','bg-green-500','bg-blue-500','bg-pink-500','bg-yellow-400','bg-indigo-500'];
@@ -385,7 +385,7 @@
                      { name: 'Up', type: 'line', smooth: true, symbol: 'none', itemStyle: { color: '#10b981' }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(16, 185, 129, 0.3)' }, { offset: 1, color: 'rgba(16, 185, 129, 0.01)' }]) }, data: [] }]
         });
 
-        // 闂備胶绮划鐘诲垂娴煎瓨鍤嬪ù鍏兼綑閻?(闂佸湱鍘ч悺銊ヮ潖婵犳艾鏋侀柕鍫濐槸缁€鍡涙煕閳╁喚娈樻い?
+        // 初始化应用分布饼图 (ECharts)
         const donutChart = hasEcharts ? echarts.init(document.getElementById('app-dist-chart')) : emptyChart;
         donutChart.setOption({
             tooltip: { trigger: 'item' },
