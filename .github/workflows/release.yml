@@ -66,13 +66,42 @@ jobs:
           core_arch="$(basename "$core_ipk" .ipk | sed -E 's/^dashboard-core_[^_]+_(.+)$/\1/')"
           test -n "$core_arch" || (echo "Cannot parse dashboard-core architecture from $core_ipk" && exit 1)
 
-          core_bin="$(find . -type f \( \
-            -path '*/dashboard-core-*/dashboard-core' -o \
-            -path '*/ipkg-*/dashboard-core/usr/bin/dashboard-core' -o \
-            -path '*/.pkgdir/dashboard-core/usr/bin/dashboard-core' \
-          \) | sort | head -n 1)"
-          test -n "$core_bin" || (echo "Missing compiled dashboard-core binary" && exit 1)
-          cp -f "$core_bin" "dist/dashboard-core-${core_arch}"
+          core_out="dist/dashboard-core-${core_arch}"
+          core_tmp="$(mktemp -d)"
+          extract_ok=0
+
+          if ar t "$core_ipk" >/dev/null 2>&1; then
+            (
+              cd "$core_tmp"
+              ar x "$GITHUB_WORKSPACE/$core_ipk"
+            )
+            data_tar="$(find "$core_tmp" -maxdepth 1 -type f -name 'data.tar.*' | sort | head -n 1)"
+            if [ -n "$data_tar" ]; then
+              case "$data_tar" in
+                *.gz) tar -xOf "$data_tar" ./usr/bin/dashboard-core > "$core_out" && extract_ok=1 || true ;;
+                *.xz) tar -xOf "$data_tar" ./usr/bin/dashboard-core > "$core_out" && extract_ok=1 || true ;;
+                *.zst) tar --zstd -xOf "$data_tar" ./usr/bin/dashboard-core > "$core_out" && extract_ok=1 || true ;;
+                *.tar) tar -xOf "$data_tar" ./usr/bin/dashboard-core > "$core_out" && extract_ok=1 || true ;;
+              esac
+            fi
+          fi
+
+          if [ "$extract_ok" -ne 1 ] && tar -tf "$core_ipk" >/dev/null 2>&1; then
+            tar -xOf "$core_ipk" ./usr/bin/dashboard-core > "$core_out" && extract_ok=1 || true
+            if [ "$extract_ok" -ne 1 ]; then
+              tar -xOf "$core_ipk" usr/bin/dashboard-core > "$core_out" && extract_ok=1 || true
+            fi
+          fi
+
+          if [ "$extract_ok" -ne 1 ] && command -v bsdtar >/dev/null 2>&1; then
+            bsdtar -xOf "$core_ipk" ./usr/bin/dashboard-core > "$core_out" && extract_ok=1 || true
+            if [ "$extract_ok" -ne 1 ]; then
+              bsdtar -xOf "$core_ipk" usr/bin/dashboard-core > "$core_out" && extract_ok=1 || true
+            fi
+          fi
+
+          rm -rf "$core_tmp"
+          test "$extract_ok" -eq 1 || (echo "Cannot extract dashboard-core from $core_ipk" && file "$core_ipk" && exit 1)
 
           chmod 755 dist/install.sh dist/dashboard-core-*
 
