@@ -133,6 +133,86 @@ local function compare_versions(left, right)
     return 0
 end
 
+local blocked_file_suffixes = {
+    cfg = true,
+    conf = true,
+    css = true,
+    dat = true,
+    eot = true,
+    gz = true,
+    ipk = true,
+    js = true,
+    json = true,
+    ko = true,
+    list = true,
+    lock = true,
+    log = true,
+    lua = true,
+    map = true,
+    pid = true,
+    sh = true,
+    so = true,
+    tar = true,
+    tmp = true,
+    ttf = true,
+    txt = true,
+    woff = true,
+    woff2 = true,
+    zip = true,
+}
+
+local syslog_facilities = {
+    auth = true,
+    authpriv = true,
+    cron = true,
+    daemon = true,
+    kern = true,
+    kernel = true,
+    local0 = true,
+    local1 = true,
+    local2 = true,
+    local3 = true,
+    local4 = true,
+    local5 = true,
+    local6 = true,
+    local7 = true,
+    mail = true,
+    news = true,
+    syslog = true,
+    user = true,
+    uucp = true,
+}
+
+local syslog_levels = {
+    alert = true,
+    crit = true,
+    debug = true,
+    emerg = true,
+    err = true,
+    error = true,
+    info = true,
+    notice = true,
+    warn = true,
+    warning = true,
+}
+
+local function is_blocked_domain_token(domain)
+    local first = domain:match("^([^.]+)%.")
+    local last = domain:match("%.([^.]+)$")
+
+    if not last then
+        return true
+    end
+    if blocked_file_suffixes[last] then
+        return true
+    end
+    if first and syslog_facilities[first] and syslog_levels[last] then
+        return true
+    end
+
+    return false
+end
+
 local function normalize_domain(value)
     local domain = trim(value):lower()
     if domain == "" then
@@ -150,6 +230,20 @@ local function normalize_domain(value)
     end
 
     if domain:match("^%d+%.%d+%.%d+%.%d+$") then
+        return nil
+    end
+
+    if not domain:match("^[%w%-%.]+$") or not domain:match("%.") then
+        return nil
+    end
+
+    for label in domain:gmatch("[^.]+") do
+        if label == "" or label:match("^%-") or label:match("%-$") then
+            return nil
+        end
+    end
+
+    if is_blocked_domain_token(domain) then
         return nil
     end
 
@@ -179,14 +273,6 @@ local function extract_domains_from_line(line)
                 seen[domain] = true
                 results[#results + 1] = domain
             end
-        end
-    end
-
-    for candidate in raw:gmatch("([%w][%w%-]*[%w]?%.[%w%.%-]+)") do
-        local domain = normalize_domain(candidate)
-        if domain and not seen[domain] then
-            seen[domain] = true
-            results[#results + 1] = domain
         end
     end
 

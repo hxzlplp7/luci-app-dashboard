@@ -870,6 +870,55 @@ static bool is_domain_label_char(char c)
     return isalnum((unsigned char)c) || c == '-';
 }
 
+static bool str_in_list(const char *value, const char *const *list)
+{
+    if (!value) return false;
+    for (int i = 0; list[i]; i++) {
+        if (strcmp(value, list[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool is_blocked_file_suffix(const char *tld)
+{
+    static const char *const suffixes[] = {
+        "cfg", "conf", "css", "dat", "eot", "gz", "ipk", "js", "json",
+        "ko", "list", "lock", "log", "lua", "map", "pid", "sh", "so",
+        "tar", "tmp", "ttf", "txt", "woff", "woff2", "zip", NULL
+    };
+    return str_in_list(tld, suffixes);
+}
+
+static bool is_syslog_facility_token(const char *domain, const char *last_label)
+{
+    static const char *const facilities[] = {
+        "auth", "authpriv", "cron", "daemon", "kern", "kernel", "local0",
+        "local1", "local2", "local3", "local4", "local5", "local6", "local7",
+        "mail", "news", "syslog", "user", "uucp", NULL
+    };
+    static const char *const levels[] = {
+        "alert", "crit", "debug", "emerg", "err", "error", "info", "notice",
+        "warn", "warning", NULL
+    };
+    char first_label[64];
+    const char *dot = strchr(domain, '.');
+    size_t len;
+
+    if (!dot || !str_in_list(last_label, levels)) {
+        return false;
+    }
+
+    len = (size_t)(dot - domain);
+    if (len == 0 || len >= sizeof(first_label)) {
+        return false;
+    }
+    memcpy(first_label, domain, len);
+    first_label[len] = '\0';
+    return str_in_list(first_label, facilities);
+}
+
 static bool is_valid_domain_name(const char *domain)
 {
     const char *label = domain;
@@ -912,6 +961,10 @@ static bool is_valid_domain_name(const char *domain)
     }
 
     if (label_count < 2 || !has_alpha || is_ipv4_literal(domain)) {
+        return false;
+    }
+
+    if (is_blocked_file_suffix(last_label) || is_syslog_facility_token(domain, last_label)) {
         return false;
     }
 
@@ -997,26 +1050,6 @@ static void record_candidate(const char *raw, int weight, char seen[][128], int 
     }
 }
 
-static void scan_generic_domains(const char *line, int weight, char seen[][128], int *seen_count)
-{
-    const char *p = line;
-    while (*p) {
-        while (*p && !(isalnum((unsigned char)*p))) p++;
-        const char *start = p;
-        bool dot = false;
-        while (*p && (isalnum((unsigned char)*p) || *p == '-' || *p == '.')) {
-            if (*p == '.') dot = true;
-            p++;
-        }
-        if (dot && p > start && (size_t)(p - start) < 256) {
-            char token[256];
-            memcpy(token, start, (size_t)(p - start));
-            token[p - start] = '\0';
-            record_candidate(token, weight, seen, seen_count);
-        }
-    }
-}
-
 static void extract_and_record(const char *line, int weight) {
     char buf[256];
     const char *p;
@@ -1088,7 +1121,7 @@ static void extract_and_record(const char *line, int weight) {
             }
         }
     }
-    scan_generic_domains(line, weight, seen, &seen_count);
+    (void)weight;
 }
 
 static void parse_conntrack() {

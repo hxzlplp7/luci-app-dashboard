@@ -39,8 +39,28 @@
         const tld = labels[labels.length - 1];
         if (!/^[a-z]/.test(tld)) return false;
         if (!tld.startsWith('xn--') && !/^[a-z-]+$/.test(tld)) return false;
+        if (isBlockedDomainToken(labels, tld)) return false;
 
         return labels.some((label) => /[a-z]/.test(label));
+    }
+
+    function isBlockedDomainToken(labels, tld) {
+        const blockedFileSuffixes = new Set([
+            'cfg', 'conf', 'css', 'dat', 'eot', 'gz', 'ipk', 'js', 'json',
+            'ko', 'list', 'lock', 'log', 'lua', 'map', 'pid', 'sh', 'so',
+            'tar', 'tmp', 'ttf', 'txt', 'woff', 'woff2', 'zip',
+        ]);
+        const syslogFacilities = new Set([
+            'auth', 'authpriv', 'cron', 'daemon', 'kern', 'kernel', 'local0',
+            'local1', 'local2', 'local3', 'local4', 'local5', 'local6',
+            'local7', 'mail', 'news', 'syslog', 'user', 'uucp',
+        ]);
+        const syslogLevels = new Set([
+            'alert', 'crit', 'debug', 'emerg', 'err', 'error', 'info',
+            'notice', 'warn', 'warning',
+        ]);
+
+        return blockedFileSuffixes.has(tld) || (syslogLevels.has(tld) && syslogFacilities.has(labels[0]));
     }
 
     function filterDomainRows(rows) {
