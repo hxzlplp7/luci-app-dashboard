@@ -47,7 +47,7 @@
     function isBlockedDomainToken(labels, tld) {
         const blockedFileSuffixes = new Set([
             'cfg', 'conf', 'css', 'dat', 'eot', 'gz', 'ipk', 'js', 'json',
-            'ko', 'list', 'lock', 'log', 'lua', 'map', 'pid', 'sh', 'so',
+            'ko', 'list', 'lock', 'log', 'lua', 'map', 'pid', 'rules', 'sh', 'so',
             'tar', 'tmp', 'ttf', 'txt', 'woff', 'woff2', 'zip',
         ]);
         const syslogFacilities = new Set([

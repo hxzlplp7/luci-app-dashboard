@@ -885,7 +885,7 @@ static bool is_blocked_file_suffix(const char *tld)
 {
     static const char *const suffixes[] = {
         "cfg", "conf", "css", "dat", "eot", "gz", "ipk", "js", "json",
-        "ko", "list", "lock", "log", "lua", "map", "pid", "sh", "so",
+        "ko", "list", "lock", "log", "lua", "map", "pid", "rules", "sh", "so",
         "tar", "tmp", "ttf", "txt", "woff", "woff2", "zip", NULL
     };
     return str_in_list(tld, suffixes);

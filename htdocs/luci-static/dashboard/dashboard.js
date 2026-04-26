@@ -77,7 +77,42 @@
         const filterDomainRows = typeof dashboardData.filterDomainRows === 'function'
             ? dashboardData.filterDomainRows
             : function(rows) {
-                return Array.isArray(rows) ? rows.filter((item) => item && item.domain) : [];
+                const blockedFileSuffixes = new Set([
+                    'cfg', 'conf', 'css', 'dat', 'eot', 'gz', 'ipk', 'js', 'json',
+                    'ko', 'list', 'lock', 'log', 'lua', 'map', 'pid', 'rules', 'sh', 'so',
+                    'tar', 'tmp', 'ttf', 'txt', 'woff', 'woff2', 'zip',
+                ]);
+                const syslogFacilities = new Set([
+                    'auth', 'authpriv', 'cron', 'daemon', 'kern', 'kernel', 'local0',
+                    'local1', 'local2', 'local3', 'local4', 'local5', 'local6',
+                    'local7', 'mail', 'news', 'syslog', 'user', 'uucp',
+                ]);
+                const syslogLevels = new Set([
+                    'alert', 'crit', 'debug', 'emerg', 'err', 'error', 'info',
+                    'notice', 'warn', 'warning',
+                ]);
+
+                function isLikelyDomain(value) {
+                    const domain = String(value || '').trim().toLowerCase();
+                    if (!domain || domain.length > 253 || !domain.includes('.') || /^\d+\.\d+\.\d+\.\d+$/.test(domain)) {
+                        return false;
+                    }
+                    const labels = domain.split('.');
+                    if (labels.length < 2) return false;
+                    for (const label of labels) {
+                        if (!label || label.length > 63 || !/^[a-z0-9-]+$/.test(label) || label.startsWith('-') || label.endsWith('-')) {
+                            return false;
+                        }
+                    }
+                    const tld = labels[labels.length - 1];
+                    if (!/^[a-z]/.test(tld)) return false;
+                    if (!tld.startsWith('xn--') && !/^[a-z-]+$/.test(tld)) return false;
+                    if (blockedFileSuffixes.has(tld)) return false;
+                    if (syslogLevels.has(tld) && syslogFacilities.has(labels[0])) return false;
+                    return labels.some((label) => /[a-z]/.test(label));
+                }
+
+                return Array.isArray(rows) ? rows.filter((item) => item && isLikelyDomain(item.domain)) : [];
             };
 
         let mockTx = 1024 * 1024 * 50;

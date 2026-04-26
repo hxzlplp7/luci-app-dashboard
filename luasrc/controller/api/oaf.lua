@@ -150,6 +150,7 @@ local blocked_file_suffixes = {
     lua = true,
     map = true,
     pid = true,
+    rules = true,
     sh = true,
     so = true,
     tar = true,
