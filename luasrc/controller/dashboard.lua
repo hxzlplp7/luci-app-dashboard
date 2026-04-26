@@ -97,11 +97,61 @@ local function fetch_dashboard_core_databus()
     return nil
 end
 
+local function build_oaf_status_data()
+    local ok, oaf = pcall(require, "luci.controller.api.oaf")
+    if ok and oaf and type(oaf.get_status_data) == "function" then
+        local ok_status, data = pcall(oaf.get_status_data)
+        if ok_status and type(data) == "table" then
+            return data
+        end
+    end
+
+    return {
+        success = false,
+        available = false,
+        engine = "",
+        current_version = "",
+        active_apps = {},
+        class_stats = {},
+    }
+end
+
 local function api_databus()
     local data = fetch_dashboard_core_databus()
     if not data then
         return write_json(dashboard_core_error(), 503, "Service Unavailable")
     end
+
+    local oaf_status = build_oaf_status_data()
+
+    if type(oaf_status.active_apps) == "table" and #oaf_status.active_apps > 0 then
+        local online_apps = {}
+        for _, app in ipairs(oaf_status.active_apps) do
+            online_apps[#online_apps + 1] = {
+                id = tonumber(app.id) or 0,
+                name = trim(app.name or ""),
+                class = trim(app.class or ""),
+                class_label = trim(app.class_label or app.class or ""),
+                devices = tonumber(app.devices or 0) or 0,
+                last_seen = tonumber(app.last_seen or 0) or 0,
+                icon = trim(app.icon or ""),
+                time = tonumber(app.time or 0) or 0,
+                source = "oaf",
+            }
+        end
+        data.online_apps = {
+            total = #online_apps,
+            list = online_apps,
+        }
+        data.app_recognition = {
+            available = true,
+            source = "oaf",
+            engine = trim(oaf_status.engine or "") ~= "" and trim(oaf_status.engine) or "OpenAppFilter",
+            feature_version = trim(oaf_status.current_version or ""),
+            class_stats = type(oaf_status.class_stats) == "table" and oaf_status.class_stats or {},
+        }
+    end
+
     return write_json(data)
 end
 
