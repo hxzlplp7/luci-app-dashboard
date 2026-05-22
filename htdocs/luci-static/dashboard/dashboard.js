@@ -169,12 +169,16 @@
             if (endpoint === 'devices') return (data.devices && data.devices.list) || [];
             if (endpoint === 'domains') {
                 const domains = data.domains || {};
-                if (!domains.realtime && data.realtime_urls && Array.isArray(data.realtime_urls.list)) {
+                if ((!domains.realtime || domains.realtime.length === 0) && data.realtime_urls && Array.isArray(data.realtime_urls.list) && data.realtime_urls.list.length > 0) {
                     domains.realtime = data.realtime_urls.list.map((item) => ({
                         domain: item.domain,
                         count: Number(item.count || item.hits) || 0,
                     }));
                     domains.realtime_source = domains.realtime_source || data.realtime_urls.source || 'dashboard-core';
+                }
+                if ((!domains.realtime || domains.realtime.length === 0) && Array.isArray(domains.recent) && domains.recent.length > 0) {
+                    domains.realtime = domains.recent;
+                    domains.realtime_source = domains.realtime_source || domains.source || 'dashboard-core';
                 }
                 return domains;
             }
@@ -379,8 +383,27 @@
                 if (cntElement) cntElement.innerText = apps.length;
                 appsElement.innerHTML = apps.slice(0, 12).map((app, i) => {
                     const color = OAF_COLORS[i % OAF_COLORS.length];
-                    const iconHtml = app.icon 
-                        ? `<img src="${app.icon}" class="w-8 h-8 rounded-lg" alt="${app.name}">` 
+                    let iconUrl = app.icon;
+                    if (!iconUrl && app.name) {
+                        const nameLower = app.name.toLowerCase();
+                        if (nameLower.includes('google')) iconUrl = '/luci-static/resources/app_icons/8079.png';
+                        else if (nameLower.includes('github')) iconUrl = '/luci-static/resources/app_icons/8087.png';
+                        else if (nameLower.includes('apple')) iconUrl = '/luci-static/resources/app_icons/8112.png';
+                        else if (nameLower.includes('wechat') || nameLower.includes('微信')) iconUrl = '/luci-static/resources/app_icons/1002.png';
+                        else if (nameLower.includes('bilibili') || nameLower.includes('哔哩')) iconUrl = '/luci-static/resources/app_icons/3014.png';
+                        else if (nameLower.includes('douyin') || nameLower.includes('抖音') || nameLower.includes('tiktok')) iconUrl = '/luci-static/resources/app_icons/3001.png';
+                        else if (nameLower.includes('microsoft')) iconUrl = '/luci-static/resources/app_icons/7020.png';
+                        else if (nameLower.includes('youtube')) iconUrl = '/luci-static/resources/app_icons/3023.png';
+                        else if (nameLower.includes('netflix')) iconUrl = '/luci-static/resources/app_icons/3024.png';
+                        else if (nameLower.includes('steam')) iconUrl = '/luci-static/resources/app_icons/2068.png';
+                        else if (nameLower.includes('xbox')) iconUrl = '/luci-static/resources/app_icons/2027.png';
+                        else if (nameLower.includes('playstation') || nameLower.includes('psn')) iconUrl = '/luci-static/resources/app_icons/2027.png';
+                        else if (nameLower.includes('telegram')) iconUrl = '/luci-static/resources/app_icons/1003.png';
+                        else if (nameLower.includes('discord')) iconUrl = '/luci-static/resources/app_icons/1006.png';
+                        else if (nameLower.includes('qq')) iconUrl = '/luci-static/resources/app_icons/1001.png';
+                    }
+                    const iconHtml = iconUrl 
+                        ? `<img src="${iconUrl}" class="w-8 h-8 rounded-lg" alt="${app.name}">` 
                         : `<span class="text-white text-lg font-bold">${app.name.charAt(0)}</span>`;
                         
                     return `
