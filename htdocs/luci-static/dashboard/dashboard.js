@@ -277,7 +277,7 @@
                 document.getElementById('wan-ip').innerText = net.wanIp || '-';
                 document.getElementById('lan-ip').innerText = net.lanIp || '-';
                 document.getElementById('gateway').innerText = net.gateway || '-';
-                document.getElementById('internet-status-text').innerText = net.wanStatus === 'up' ? (net.wanIp ? 'Internet Online' : 'Gateway Ready') : 'Internet Offline';
+                document.getElementById('internet-status-text').innerText = net.wanStatus === 'up' ? (net.wanIp ? '已联网' : '网关就绪') : '未联网';
                 document.getElementById('internet-status-desc').innerText = net.onlineReason ? net.onlineReason : '-';
                 if(document.getElementById('summary-connections') && net.connCount) document.getElementById('summary-connections').innerText = net.connCount;
 
@@ -369,9 +369,62 @@
                 </div>`).join('') || '<div class="text-center text-gray-400 text-xs mt-4">暂无实时域名数据</div>';
         }
 
-        const OAF_COLORS = ['bg-orange-500','bg-green-500','bg-blue-500','bg-pink-500','bg-yellow-400','bg-indigo-500'];
+        // 基于应用名称的图标映射（fallback：用于 domain-heuristic 模式下后端未提供 icon 时）
+        const APP_ICON_MAP = {
+            // 聊天类
+            '微信': '1002', 'wechat': '1002', '微博': '1003', 'weibo': '1003',
+            '支付宝': '1005', 'alipay': '1005', '钉钉': '1006', 'dingtalk': '1006',
+            '飞书': '1019', 'feishu': '1019', 'qq': '1001',
+            // 视频类
+            '抖音': '3001', 'douyin': '3001', 'tiktok': '3001',
+            '哔哩哔哩': '3014', 'bilibili': '3014', '爱奇艺': '3004', 'iqiyi': '3004',
+            '优酷': '3024', 'youku': '3024', '小红书': '3010', 'xiaohongshu': '3010',
+            '央视频': '3023', 'cctv': '3023', '西瓜视频': '3017',
+            '芒果tv': '3016', 'mgtv': '3016', '虎牙直播': '3008', 'huya': '3008',
+            '斗鱼': '3006', 'douyu': '3006',
+            // 游戏类
+            '王者荣耀': '2001', '原神': '2023', 'genshin': '2023',
+            // 购物类
+            '淘宝': '4001', 'taobao': '4001', '京东': '4002', 'jd': '4002',
+            '拼多多': '4004', 'pinduoduo': '4004', '美团': '10035', 'meituan': '10035',
+            '饿了么': '10034', 'eleme': '10034',
+            // 音乐类
+            '网易云音乐': '5001', 'netease music': '5001',
+            'qq音乐': '5002', 'qqmusic': '5002',
+            '酷狗音乐': '5003', 'kugou': '5003',
+            // 常用网站
+            '谷歌': '8079', 'google': '8079', '百度': '8001', 'baidu': '8001',
+            'github': '8087', 'gitee': '8089',
+            '苹果官网': '8112', 'apple': '8112',
+            '必应': '8090', 'bing': '8090',
+            '知乎': '10005', 'zhihu': '10005', '豆瓣': '10004', 'douban': '10004',
+            // 下载/工具类
+            'windows更新': '7020', 'microsoft': '7020',
+            '阿里云盘': '7032', 'aliyundrive': '7032',
+            '向日葵': '7030', 'teamviewer': '7031',
+            'youtube': '3023', 'netflix': '3024',
+        };
+        function resolveAppIcon(app) {
+            // 优先使用后端已返回的 icon（特征库匹配模式直接提供了准确的图标URL）
+            if (app.icon && !app.icon.endsWith('default.png')) return app.icon;
+            if (!app.name) return null;
+            // 精确匹配
+            const nameLower = app.name.toLowerCase();
+            if (APP_ICON_MAP[nameLower]) return '/luci-static/resources/app_icons/' + APP_ICON_MAP[nameLower] + '.png';
+            if (APP_ICON_MAP[app.name]) return '/luci-static/resources/app_icons/' + APP_ICON_MAP[app.name] + '.png';
+            // 模糊匹配
+            for (const [key, id] of Object.entries(APP_ICON_MAP)) {
+                if (nameLower.includes(key) || key.includes(nameLower)) {
+                    return '/luci-static/resources/app_icons/' + id + '.png';
+                }
+            }
+            // 如果有 app.id，尝试用 id 加载
+            if (app.id) return '/luci-static/resources/app_icons/' + app.id + '.png';
+            return null;
+        }
+
         async function loadActiveApps() {
-            // Active app list now comes from unified databus payload.
+            // 活跃应用列表来自统一的 databus 接口
             const databus = await apiRequest('databus');
             const appsElement = document.getElementById('active-apps-container');
             const cntElement = document.getElementById('app-count');
@@ -381,34 +434,20 @@
             
             if (apps.length > 0) {
                 if (cntElement) cntElement.innerText = apps.length;
-                appsElement.innerHTML = apps.slice(0, 12).map((app, i) => {
-                    const color = OAF_COLORS[i % OAF_COLORS.length];
-                    let iconUrl = app.icon;
-                    if (!iconUrl && app.name) {
-                        const nameLower = app.name.toLowerCase();
-                        if (nameLower.includes('google')) iconUrl = '/luci-static/resources/app_icons/8079.png';
-                        else if (nameLower.includes('github')) iconUrl = '/luci-static/resources/app_icons/8087.png';
-                        else if (nameLower.includes('apple')) iconUrl = '/luci-static/resources/app_icons/8112.png';
-                        else if (nameLower.includes('wechat') || nameLower.includes('微信')) iconUrl = '/luci-static/resources/app_icons/1002.png';
-                        else if (nameLower.includes('bilibili') || nameLower.includes('哔哩')) iconUrl = '/luci-static/resources/app_icons/3014.png';
-                        else if (nameLower.includes('douyin') || nameLower.includes('抖音') || nameLower.includes('tiktok')) iconUrl = '/luci-static/resources/app_icons/3001.png';
-                        else if (nameLower.includes('microsoft')) iconUrl = '/luci-static/resources/app_icons/7020.png';
-                        else if (nameLower.includes('youtube')) iconUrl = '/luci-static/resources/app_icons/3023.png';
-                        else if (nameLower.includes('netflix')) iconUrl = '/luci-static/resources/app_icons/3024.png';
-                        else if (nameLower.includes('steam')) iconUrl = '/luci-static/resources/app_icons/2068.png';
-                        else if (nameLower.includes('xbox')) iconUrl = '/luci-static/resources/app_icons/2027.png';
-                        else if (nameLower.includes('playstation') || nameLower.includes('psn')) iconUrl = '/luci-static/resources/app_icons/2027.png';
-                        else if (nameLower.includes('telegram')) iconUrl = '/luci-static/resources/app_icons/1003.png';
-                        else if (nameLower.includes('discord')) iconUrl = '/luci-static/resources/app_icons/1006.png';
-                        else if (nameLower.includes('qq')) iconUrl = '/luci-static/resources/app_icons/1001.png';
-                    }
+                appsElement.innerHTML = apps.slice(0, 12).map((app) => {
+                    const iconUrl = resolveAppIcon(app);
+                    // 有图标时直接渲染图标，无图标时使用首字母 + 彩色背景
                     const iconHtml = iconUrl 
-                        ? `<img src="${iconUrl}" class="w-8 h-8 rounded-lg" alt="${app.name}">` 
+                        ? `<img src="${iconUrl}" class="w-10 h-10 rounded-[12px] shadow-sm" alt="${app.name}" onerror="this.parentElement.innerHTML='<span class=\\'text-white text-lg font-bold\\'>${app.name.charAt(0)}</span>';this.parentElement.classList.add('bg-gradient-to-br','from-blue-400','to-indigo-500');">` 
                         : `<span class="text-white text-lg font-bold">${app.name.charAt(0)}</span>`;
+                    // 有图标时使用白色/透明背景，无图标时使用渐变色背景
+                    const bgClass = iconUrl 
+                        ? 'bg-white border border-gray-100' 
+                        : 'bg-gradient-to-br from-blue-400 to-indigo-500';
                         
                     return `
                     <div class="flex flex-col items-center gap-2 cursor-pointer group">
-                        <div class="w-12 h-12 rounded-[14px] ${color} flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:-translate-y-1">
+                        <div class="w-12 h-12 rounded-[14px] ${bgClass} flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:-translate-y-1 overflow-hidden">
                             ${iconHtml}
                         </div>
                         <span class="text-[11px] font-medium text-gray-500 group-hover:text-gray-800 transition-colors w-14 text-center truncate">${app.name}</span>
@@ -416,10 +455,10 @@
                 `}).join('');
             } else {
                 if (cntElement) cntElement.innerText = "0";
-                appsElement.innerHTML = '<div class="w-full text-center text-gray-400 text-xs mt-4">No active app data</div>';
+                appsElement.innerHTML = '<div class="w-full text-center text-gray-400 text-xs mt-4">暂无活跃应用数据</div>';
             }
             
-            // Update app distribution chart using normalized class stats from databus.
+            // 使用 databus 返回的分类统计更新应用分布饼图
             if (typeof donutChart !== 'undefined' && classStats.length > 0) {
                 donutChart.setOption({
                     series: [{
@@ -454,7 +493,7 @@
             tooltip: { trigger: 'item' },
             color: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#cbd5e1'],
             series: [{
-                name: 'App Distribution',
+                name: '应用分布',
                 type: 'pie',
                 radius: ['55%', '85%'],
                 avoidLabelOverlap: false,
@@ -462,7 +501,7 @@
                 label: { show: false, position: 'center' },
                 emphasis: { label: { show: true, fontSize: 18, fontWeight: 'bold', formatter: '{d}%' } },
                 labelLine: { show: false },
-                data: [{ value: 100, name: 'Waiting for app stats' }]
+                data: [{ value: 100, name: '等待应用统计数据' }]
             }]
         });
 
