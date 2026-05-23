@@ -426,8 +426,17 @@ static void append_network_status(struct buffer *b, const char *iface)
     char dns[128] = "";
     char cmd[384];
     bool online = iface && iface[0];
+    /* 验证接口名格式：仅允许字母、数字、连字符、下划线和点 */
+    if (online) {
+        for (const char *p = iface; *p; p++) {
+            if (!isalnum((unsigned char)*p) && *p != '-' && *p != '_' && *p != '.') {
+                online = false;
+                break;
+            }
+        }
+    }
 
-    if (iface && iface[0]) {
+    if (online) {
         snprintf(cmd, sizeof(cmd), "ip -4 addr show dev '%s' 2>/dev/null | awk '/inet / {print $2; exit}' | cut -d/ -f1", iface);
         read_cmd(cmd, wan_ip, sizeof(wan_ip));
         snprintf(cmd, sizeof(cmd), "ip -6 addr show dev '%s' scope global 2>/dev/null | awk '/inet6 / {print $2; exit}' | cut -d/ -f1", iface);

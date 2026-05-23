@@ -3,7 +3,7 @@ set -eu
 
 REPO="${REPO:-hxzlplp7/luci-app-dashboard}"
 VERSION="${VERSION:-latest}"
-INSTALL_DIR="${INSTALL_DIR:-/tmp/luci-app-dashboard-install}"
+INSTALL_DIR="${INSTALL_DIR:-}"
 CORE_BIN="/usr/bin/dashboard-core"
 CORE_SERVICE="/etc/init.d/dashboard-core"
 CORE_LISTEN="${CORE_LISTEN:-127.0.0.1:19090}"
@@ -143,7 +143,7 @@ USE_PROCD=1
 start_service() {
     procd_open_instance
     procd_set_param command $CORE_BIN --listen $CORE_LISTEN
-    procd_set_param respawn 3600 5 5
+    procd_set_param respawn 3600 5 0
     procd_set_param stdout 1
     procd_set_param stderr 1
     procd_close_instance
@@ -173,8 +173,16 @@ CORE_MODE=""
 
 echo "Using release: ${VERSION}"
 
-rm -rf "$INSTALL_DIR"
-mkdir -p "$INSTALL_DIR"
+if [ -z "$INSTALL_DIR" ]; then
+    INSTALL_DIR=$(mktemp -d "${TMPDIR:-/tmp}/luci-app-dashboard-install.XXXXXXXXXX") || {
+        echo "Failed to create temporary directory" >&2
+        exit 1
+    }
+    trap 'rm -rf "$INSTALL_DIR"' EXIT
+else
+    rm -rf "$INSTALL_DIR"
+    mkdir -p "$INSTALL_DIR"
+fi
 
 download "${BASE_URL}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-app-dashboard.ipk"
 download "${BASE_URL}/luci-i18n-dashboard-zh-cn.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"

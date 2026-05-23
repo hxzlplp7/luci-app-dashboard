@@ -1052,8 +1052,22 @@ local function locate_payload(out_dir)
     return feature_cfg, app_icons
 end
 
+-- 安全检查：确保路径在预期目录内，不包含 .. 遍历
+local function is_safe_subpath(path, expected_root)
+    local resolved = tostring(path or "")
+    if resolved:match("%.%.") then
+        return false
+    end
+    return resolved:sub(1, #expected_root) == expected_root
+end
+
 local function copy_payload(feature_cfg, app_icons)
     if not ensure_dir(FEATURE_ROOT) then
+        return false
+    end
+
+    -- 安全检查：验证路径在临时目录内
+    if not is_safe_subpath(feature_cfg, TMP_ROOT) then
         return false
     end
 
@@ -1066,8 +1080,12 @@ local function copy_payload(feature_cfg, app_icons)
     end
 
     if app_icons ~= "" and path_exists(app_icons) then
+        if not is_safe_subpath(app_icons, TMP_ROOT) then
+            return false
+        end
         ensure_dir(ICON_DIR)
-        sys.call("cp -fpR " .. shell_quote(app_icons .. "/.") .. " " .. shell_quote(ICON_DIR) .. " >/dev/null 2>&1")
+        -- 使用 --no-dereference 防止符号链接跳出
+        sys.call("cp -fpR --no-dereference " .. shell_quote(app_icons .. "/.") .. " " .. shell_quote(ICON_DIR) .. " >/dev/null 2>&1")
     end
 
     return true
@@ -1155,11 +1173,20 @@ M.action_upload = function()
         return
     end
 
-    -- 前置 CSRF 校验：从 URL 查询参数中读取 token，在解析 multipart body 之前完成验证
-    local qs_token = trim(http.getenv("QUERY_STRING") or ""):match("token=([^&]+)")
-    qs_token = qs_token and util.urldecode(qs_token) or ""
-    local expected = trim((d.context and d.context.authtoken) or "")
-    if expected == "" or qs_token ~= expected then
+    -- 前置 CSRF 校验：在解析 multipart body 之前完成验证
+    -- 优先使用 LuCI dispatcher 的标准 token 校验方法
+    local csrf_ok = false
+    if type(d.test_token) == "function" then
+        csrf_ok = d.test_token()
+    end
+    if not csrf_ok then
+        -- 回退：从 URL 查询参数中读取 token 手动验证
+        local qs_token = trim(http.getenv("QUERY_STRING") or ""):match("token=([^&]+)")
+        qs_token = qs_token and util.urldecode(qs_token) or ""
+        local expected = trim((d.context and d.context.authtoken) or "")
+        csrf_ok = (expected ~= "" and qs_token == expected)
+    end
+    if not csrf_ok then
         http.status(403, "Forbidden")
         http.prepare_content("application/json")
         http.write(json.stringify({
