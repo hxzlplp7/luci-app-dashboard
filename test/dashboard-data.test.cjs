@@ -125,3 +125,33 @@ test('accepts common and punycode domain shapes', () => {
     assert.equal(helpers.isLikelyDomain('xn--fiqs8s.cn'), true);
     assert.equal(helpers.isLikelyDomain('edge.microsoft.com'), true);
 });
+
+test('aggregates classStats from online_apps when class_stats is empty', () => {
+    const state = helpers.pickActiveAppState({
+        online_apps: {
+            total: 3,
+            list: [
+                { name: 'WeChat', class: 'social', time: 10, source: 'domain-heuristic' },
+                { name: 'QQ', class: 'social', time: 5, source: 'domain-heuristic' },
+                { name: 'Google', class: 'search', time: 8, source: 'domain-heuristic' },
+            ],
+        },
+        app_recognition: {
+            available: true,
+            source: 'domain-heuristic',
+            engine: 'domain-heuristic',
+            class_stats: [],
+        },
+    }, null);
+
+    assert.equal(state.apps.length, 3);
+    assert.equal(state.classStats.length, 2);
+    
+    const socialStat = state.classStats.find(s => s.name === 'social');
+    const searchStat = state.classStats.find(s => s.name === 'search');
+    
+    assert.ok(socialStat);
+    assert.ok(searchStat);
+    assert.equal(socialStat.time, 15);
+    assert.equal(searchStat.time, 8);
+});

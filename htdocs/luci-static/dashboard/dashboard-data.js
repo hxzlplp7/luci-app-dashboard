@@ -70,7 +70,22 @@
     function pickActiveAppState(databus, oafData) {
         const databusApps = toArray(databus && databus.online_apps && databus.online_apps.list);
         const databusRecognition = (databus && databus.app_recognition) || {};
-        const databusClassStats = toArray(databusRecognition.class_stats);
+        let databusClassStats = toArray(databusRecognition.class_stats);
+
+        // 如果分类统计数据为空，但活跃应用列表不为空，则基于应用分类自动聚合生成
+        if (databusClassStats.length === 0 && databusApps.length > 0) {
+            const statsMap = {};
+            databusApps.forEach(app => {
+                const rawClass = app.class_label || app.class || 'others';
+                const weight = Number(app.time || app.hits || 1);
+                statsMap[rawClass] = (statsMap[rawClass] || 0) + weight;
+            });
+            databusClassStats = Object.keys(statsMap).map(key => ({
+                name: key,
+                time: statsMap[key]
+            }));
+        }
+
         const databusAvailable = Boolean(databusRecognition.available) || databusApps.length > 0 || databusClassStats.length > 0;
 
         if (databusAvailable) {
@@ -85,7 +100,22 @@
         }
 
         const oafApps = toArray(oafData && oafData.active_apps);
-        const oafClassStats = toArray(oafData && oafData.class_stats);
+        let oafClassStats = toArray(oafData && oafData.class_stats);
+
+        // 在 OAF 数据降级中同样支持自聚合
+        if (oafClassStats.length === 0 && oafApps.length > 0) {
+            const statsMap = {};
+            oafApps.forEach(app => {
+                const rawClass = app.class_label || app.class || 'others';
+                const weight = Number(app.time || app.hits || 1);
+                statsMap[rawClass] = (statsMap[rawClass] || 0) + weight;
+            });
+            oafClassStats = Object.keys(statsMap).map(key => ({
+                name: key,
+                time: statsMap[key]
+            }));
+        }
+
         return {
             apps: oafApps,
             classStats: oafClassStats,

@@ -23,9 +23,26 @@
         const pickActiveAppState = typeof dashboardData.pickActiveAppState === 'function'
             ? dashboardData.pickActiveAppState
             : function(databus, oafData) {
+                const apps = (databus && databus.online_apps && databus.online_apps.list) || (oafData && oafData.active_apps) || [];
+                let classStats = (databus && databus.app_recognition && databus.app_recognition.class_stats) || (oafData && oafData.class_stats) || [];
+                
+                // 若无分类统计数据但有活跃应用，则动态根据应用分类生成自聚合数据
+                if (classStats.length === 0 && apps.length > 0) {
+                    const statsMap = {};
+                    apps.forEach(app => {
+                        const rawClass = app.class_label || app.class || 'others';
+                        const weight = Number(app.time || app.hits || 1);
+                        statsMap[rawClass] = (statsMap[rawClass] || 0) + weight;
+                    });
+                    classStats = Object.keys(statsMap).map(key => ({
+                        name: key,
+                        time: statsMap[key]
+                    }));
+                }
+
                 return {
-                    apps: (databus && databus.online_apps && databus.online_apps.list) || (oafData && oafData.active_apps) || [],
-                    classStats: (databus && databus.app_recognition && databus.app_recognition.class_stats) || (oafData && oafData.class_stats) || [],
+                    apps: apps,
+                    classStats: classStats,
                     source: (databus && databus.app_recognition && databus.app_recognition.source) || (oafData && oafData.active_source) || 'none',
                 };
             };
@@ -278,7 +295,19 @@
                 document.getElementById('lan-ip').innerText = net.lanIp || '-';
                 document.getElementById('gateway').innerText = net.gateway || '-';
                 document.getElementById('internet-status-text').innerText = net.wanStatus === 'up' ? (net.wanIp ? '已联网' : '网关就绪') : '未联网';
-                document.getElementById('internet-status-desc').innerText = net.onlineReason ? net.onlineReason : '-';
+                const REASON_TRANSLATIONS = {
+                    'default-route': '默认路由就绪',
+                    'no-default-route': '无默认路由',
+                    'probe-ok': '连接正常',
+                    'online': '已联网',
+                    'offline': '已断网'
+                };
+                const translateReason = (reason) => {
+                    if (!reason) return '-';
+                    const lower = reason.toLowerCase();
+                    return REASON_TRANSLATIONS[lower] || reason;
+                };
+                document.getElementById('internet-status-desc').innerText = translateReason(net.onlineReason);
                 if(document.getElementById('summary-connections') && net.connCount) document.getElementById('summary-connections').innerText = net.connCount;
 
                 document.getElementById('dns-servers').innerHTML = net.dns && net.dns.length > 0 ? net.dns.join(' ') : '-';
@@ -460,9 +489,36 @@
             
             // 使用 databus 返回的分类统计更新应用分布饼图
             if (typeof donutChart !== 'undefined' && classStats.length > 0) {
+                const CLASS_TRANSLATIONS = {
+                    'video': '视频娱乐',
+                    'social': '社交沟通',
+                    'developer': '开发编程',
+                    'game': '游戏娱乐',
+                    'cloud': '云端服务',
+                    'search': '搜索引擎',
+                    'shopping': '网络购物',
+                    'music': '音乐欣赏',
+                    'download': '文件下载',
+                    'others': '其他应用',
+                    'other': '其他应用',
+                    '视频': '视频娱乐',
+                    '社交': '社交沟通',
+                    '游戏': '游戏娱乐',
+                    '云服务': '云端服务',
+                    '搜索': '搜索引擎',
+                    '购物': '网络购物',
+                    '音乐': '音乐欣赏',
+                    '下载': '文件下载'
+                };
+                const translateClass = (name) => {
+                    if (!name) return '其他应用';
+                    const lower = name.toLowerCase();
+                    return CLASS_TRANSLATIONS[lower] || name;
+                };
+
                 donutChart.setOption({
                     series: [{
-                        data: classStats.map(s => ({ name: s.name, value: Number(s.time) || 0 }))
+                        data: classStats.map(s => ({ name: translateClass(s.name), value: Number(s.time) || 0 }))
                     }]
                 });
             }
