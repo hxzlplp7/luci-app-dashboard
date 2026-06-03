@@ -495,8 +495,6 @@
                     return '/luci-static/resources/app_icons/' + id + '.png';
                 }
             }
-            // 如果有 app.id，尝试用 id 加载
-            if (app.id) return '/luci-static/resources/app_icons/' + app.id + '.png';
             return null;
         }
 
