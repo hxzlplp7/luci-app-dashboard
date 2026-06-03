@@ -442,6 +442,9 @@
                     </div>
                     <div class="text-[10px] text-gray-400 font-mono">${item.count}</div>
                 </div>`).join('') || '<div class="text-center text-gray-400 text-xs mt-4">暂无实时域名数据</div>';
+
+            // 活跃域名刷新后，同步触发活跃应用的刷新
+            await loadActiveApps();
         }
 
         // 基于应用名称的图标映射（fallback：用于 domain-heuristic 模式下后端未提供 icon 时）
@@ -650,6 +653,6 @@
         }
 
         initNavButtons();
-        loadStaticInfo(); loadDevices(); loadDomains(); loadActiveApps(); refresh();
-        setInterval(refresh, 2000); setInterval(loadDomains, 5000); setInterval(loadActiveApps, 15000);
+        loadStaticInfo(); loadDevices(); loadDomains(); refresh();
+        setInterval(refresh, 2000); setInterval(loadDomains, 5000);
         setInterval(loadStaticInfo, 10000); setInterval(loadDevices, 10000);
