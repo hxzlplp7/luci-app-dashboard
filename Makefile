@@ -33,13 +33,12 @@ DEFAULT_VERSION="v25.9.29"
 if [ ! -f "$${ROOT}$${FEATURE_FILE}" ] && [ -f "$${ROOT}$${DEFAULT_DIR}/feature.cfg" ]; then
 	mkdir -p "$${ROOT}$${FEATURE_ROOT}"
 	cp -f "$${ROOT}$${DEFAULT_DIR}/feature.cfg" "$${ROOT}$${FEATURE_FILE}"
-
-	if [ -d "$${ROOT}$${DEFAULT_DIR}/app_icons" ]; then
-		mkdir -p "$${ROOT}$${ICON_DST}"
-		cp -fpR "$${ROOT}$${DEFAULT_DIR}/app_icons/." "$${ROOT}$${ICON_DST}/" 2>/dev/null
-	fi
-
 	printf '%s\n' "$${DEFAULT_VERSION}" > "$${ROOT}$${VERSION_FILE}"
+fi
+
+if [ -d "$${ROOT}$${DEFAULT_DIR}/app_icons" ]; then
+	mkdir -p "$${ROOT}$${ICON_DST}"
+	cp -fpR "$${ROOT}$${DEFAULT_DIR}/app_icons/." "$${ROOT}$${ICON_DST}/" 2>/dev/null
 fi
 
 exit 0
