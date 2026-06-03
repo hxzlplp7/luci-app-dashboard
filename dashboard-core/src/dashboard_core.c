@@ -975,9 +975,6 @@ static const struct app_rule APP_RULES[] = {
     {"光明网", "developer", "www.gmw.cn"},
     {"光遇", "game", "ma75.proxima.nie.netease"},
     {"光遇", "game", "ma75.update.netease.com"},
-    {"光遇", "game", "netease"},
-    {"光遇", "game", "nie"},
-    {"光遇", "game", "proxima"},
     {"国际在线", "developer", "cri"},
     {"国际在线", "developer", "www.cri.cn"},
     {"国美", "shopping", "gome"},
@@ -1115,8 +1112,6 @@ static const struct app_rule APP_RULES[] = {
     {"猫扑", "developer", "mop.com"},
     {"美团", "others", "meituan"},
     {"梦幻西游", "game", "g18.proxima.nie"},
-    {"梦幻西游", "game", "nie"},
-    {"梦幻西游", "game", "proxima"},
     {"梦想城镇", "game", "playrix"},
     {"咪咕视频", "video", "migu"},
     {"咪咕视频", "video", "migu.cn"},
@@ -1221,15 +1216,12 @@ static const struct app_rule APP_RULES[] = {
     {"淘宝", "shopping", "tmall.com"},
     {"腾讯加速器", "game", "acc"},
     {"腾讯加速器", "game", "m.acc.qq.com"},
-    {"腾讯加速器", "game", "qq"},
     {"腾讯微云", "download", "aegis"},
     {"腾讯微云", "download", "aegis.qq.com"},
     {"腾讯微云", "download", "pingtas"},
     {"腾讯微云", "download", "pingtas.qq.com"},
-    {"腾讯微云", "download", "qq"},
     {"腾讯微云", "download", "weiyun"},
     {"腾讯微云", "download", "weiyun.com"},
-    {"腾讯智影", "developer", "qq"},
     {"腾讯智影", "developer", "zenvideo"},
     {"腾讯智影", "developer", "zenvideo.qq.com"},
     {"体育彩票", "developer", "lottery"},
@@ -1261,7 +1253,6 @@ static const struct app_rule APP_RULES[] = {
     {"网易云音乐", "music", "music.163"},
     {"微博", "social", "weibo"},
     {"微店", "shopping", "weidian"},
-    {"微信", "social", "qq"},
     {"微信", "social", "weixin"},
     {"微信", "social", "weixin.qq"},
     {"唯品会", "shopping", "appsimg"},
@@ -1276,12 +1267,10 @@ static const struct app_rule APP_RULES[] = {
     {"我的世界", "game", "mc"},
     {"我的世界", "game", "mc*.netease"},
     {"我的世界", "game", "netease"},
-    {"我的世界", "game", "nie"},
     {"我的世界", "game", "x19*.netease.com"},
     {"我叫MT4", "game", "dir"},
     {"我叫MT4", "game", "dir.mt4.qq.com"},
     {"我叫MT4", "game", "mt4"},
-    {"我叫MT4", "game", "qq"},
     {"我秀", "video", "oxiu"},
     {"我秀", "video", "oxiu.com"},
     {"西瓜视频", "video", "bdxigua"},
@@ -1298,12 +1287,8 @@ static const struct app_rule APP_RULES[] = {
     {"向日葵", "download", "oray.net"},
     {"潇湘书院", "developer", "xxsy"},
     {"潇湘书院", "developer", "xxsy.net"},
-    {"小爱音箱", "others", "ai"},
     {"小爱音箱", "others", "ai.xiaomi.com"},
-    {"小爱音箱", "others", "mi"},
-    {"小爱音箱", "others", "mina"},
     {"小爱音箱", "others", "mina.mi.com"},
-    {"小爱音箱", "others", "xiaomi"},
     {"小度互娱", "video", "xiaodutv"},
     {"小度互娱", "video", "xiaodutv.com"},
     {"小黑盒", "game", "max-c"},
@@ -1312,13 +1297,12 @@ static const struct app_rule APP_RULES[] = {
     {"小黑盒", "game", "xiaoheihe.cn"},
     {"小红书", "video", "xhscdn"},
     {"小红书", "video", "xiaohongshu"},
-    {"小米官网", "developer", "mi"},
+    {"小米官网", "developer", "mi.com"},
     {"小米官网", "developer", "www.mi.com"},
-    {"小米有品", "shopping", "mi"},
+    {"小米有品", "shopping", "youpin.com"},
     {"小米有品", "shopping", "shopapi"},
     {"小米有品", "shopping", "shopapi.io.mi.com"},
     {"小米有品", "shopping", "youpin"},
-    {"小森生活", "game", "qq"},
     {"小森生活", "game", "xssh"},
     {"小森生活", "game", "xssh.qq"},
     {"小象优品", "shopping", "xiaoxiangyoupin"},
@@ -1778,16 +1762,48 @@ static bool wildcard_match(const char *pat, const char *str) {
 
 static bool match_pattern(const char *domain, const char *pattern) {
     if (!domain || !pattern) return false;
-    if (!strchr(pattern, '*')) {
-        return strstr(domain, pattern) != NULL;
+    
+    // 若包含通配符，则采用现有的通配符模式匹配
+    if (strchr(pattern, '*')) {
+        const char *p = domain;
+        while (*p) {
+            if (wildcard_match(pattern, p)) {
+                return true;
+            }
+            p++;
+        }
+        return false;
     }
-    const char *p = domain;
-    while (*p) {
-        if (wildcard_match(pattern, p)) {
+    
+    // 若不包含通配符，执行更安全的域名/子域名后缀匹配或独立的 label 关键词匹配
+    size_t dom_len = strlen(domain);
+    size_t pat_len = strlen(pattern);
+    if (pat_len > dom_len) return false;
+    
+    // 1. 若 pattern 中包含 '.'（域名或子域名特征）
+    if (strchr(pattern, '.')) {
+        // 精确相等
+        if (strcmp(domain, pattern) == 0) return true;
+        // 子域名后缀匹配（如 mail.google.com 匹配 google.com）
+        if (dom_len > pat_len && domain[dom_len - pat_len - 1] == '.' &&
+            strcmp(domain + (dom_len - pat_len), pattern) == 0) {
             return true;
         }
-        p++;
+        return false;
     }
+    
+    // 2. 若 pattern 不包含 '.'，说明它是一个关键词。我们要求它必须是 domain 中的一个完整 label（如 www.baidu.com 中的 baidu）
+    const char *p = domain;
+    while (p) {
+        const char *next_dot = strchr(p, '.');
+        size_t label_len = next_dot ? (size_t)(next_dot - p) : strlen(p);
+        if (label_len == pat_len && strncmp(p, pattern, pat_len) == 0) {
+            return true;
+        }
+        if (!next_dot) break;
+        p = next_dot + 1;
+    }
+    
     return false;
 }
 
