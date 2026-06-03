@@ -745,7 +745,6 @@
             'jd': '4002',
             'kugou': '5003',
             'Lazada': '4054',
-            'lenovo': '8124',
             'meituan': '10035',
             'mgtv': '3016',
             'microsoft': '7020',

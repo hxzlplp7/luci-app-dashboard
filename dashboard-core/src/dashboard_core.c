@@ -1526,8 +1526,6 @@ static const struct app_rule APP_RULES[] = {
     {"Kugou", "music", "kugou.net"},
     {"Lazada", "shopping", "lazada"},
     {"Lazada", "shopping", "lazada.com"},
-    {"Lenovo", "cloud", "lenovo.com"},
-    {"Lenovo", "cloud", "lenovomm.com"},
     {"Meituan", "shopping", "dianping.com"},
     {"Meituan", "shopping", "meituan.com"},
     {"Meituan", "shopping", "meituan.net"},
