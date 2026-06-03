@@ -561,6 +561,42 @@ static int load_devices(struct device *devices, int max_devices)
     return count;
 }
 
+static const char* determine_device_type(const char *name) {
+    if (!name || !*name) return "laptop";
+    
+    char lower[128];
+    int len = 0;
+    for (int i = 0; name[i] && i < 127; i++) {
+        lower[i] = (char)tolower((unsigned char)name[i]);
+        len++;
+    }
+    lower[len] = '\0';
+
+    if (strstr(lower, "router") || strstr(lower, "route") || strstr(lower, "openwrt") ||
+        strstr(lower, "tplink") || strstr(lower, "tp-link") || strstr(lower, "dlink") ||
+        strstr(lower, "d-link") || strstr(lower, "netgear") || strstr(lower, "linksys") ||
+        strstr(lower, "mercury") || strstr(lower, "tenda") || strstr(lower, "totolink") ||
+        strstr(lower, "fast") || strstr(lower, "miwifi") || strstr(lower, "ikuai") ||
+        strstr(lower, "phicomm") || strstr(lower, "gl-inet") || strstr(lower, "gl.inet") ||
+        strstr(lower, "repeater") || strstr(lower, "extender") ||
+        strstr(lower, "ap-") || strstr(lower, "-ap")) {
+        return "router";
+    }
+
+    if (strstr(lower, "iphone") || strstr(lower, "ipad") || strstr(lower, "android") ||
+        strstr(lower, "phone") || strstr(lower, "mobile") ||
+        strstr(lower, "huawei") || strstr(lower, "honor") || strstr(lower, "xiaomi") ||
+        strstr(lower, "redmi") || strstr(lower, "oppo") || strstr(lower, "vivo") ||
+        strstr(lower, "oneplus") || strstr(lower, "samsung") || strstr(lower, "meizu") ||
+        strstr(lower, "realme") || strstr(lower, "iqoo") || strstr(lower, "galaxy") ||
+        strstr(lower, "pad") || strstr(lower, "tab") ||
+        strstr(lower, "yi-jia") || strstr(lower, "yijia") || strstr(lower, "smart")) {
+        return "mobile";
+    }
+
+    return "laptop";
+}
+
 static void append_devices(struct buffer *b)
 {
     struct device devices[MAX_DEVICES];
@@ -582,7 +618,9 @@ static void append_devices(struct buffer *b)
         json_key_string(b, "ip", devices[i].ip);
         buf_append(b, ",");
         json_key_string(b, "name", devices[i].name[0] ? devices[i].name : devices[i].ip);
-        buf_append(b, ",\"type\":\"laptop\",\"active\":");
+        buf_append(b, ",\"type\":");
+        json_string(b, determine_device_type(devices[i].name));
+        buf_append(b, ",\"active\":");
         buf_append(b, devices[i].active ? "true" : "false");
         buf_append(b, "}");
     }
@@ -817,6 +855,8 @@ static void record_realtime_domain(const char *domain, const char *client_ip)
 {
     if (!domain || !*domain) return;
 
+    match_app(domain);
+
     unsigned int h = hash_str(domain);
     struct realtime_node *node = realtime_hash_table[h];
     while (node) {
@@ -854,7 +894,6 @@ static void record_realtime_domain(const char *domain, const char *client_ip)
 
 static void record_domain(const char *domain, int weight) {
     if (!domain || !*domain) return;
-    match_app(domain);
     unsigned int h = hash_str(domain);
     struct domain_node *node = domain_hash_table[h];
     while (node) {

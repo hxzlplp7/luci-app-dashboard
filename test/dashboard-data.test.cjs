@@ -152,6 +152,6 @@ test('aggregates classStats from online_apps when class_stats is empty', () => {
     
     assert.ok(socialStat);
     assert.ok(searchStat);
-    assert.equal(socialStat.time, 15);
-    assert.equal(searchStat.time, 8);
+    assert.equal(socialStat.time, 2);
+    assert.equal(searchStat.time, 1);
 });

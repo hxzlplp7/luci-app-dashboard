@@ -31,7 +31,7 @@
                     const statsMap = {};
                     apps.forEach(app => {
                         const rawClass = app.class_label || app.class || 'others';
-                        const weight = Number(app.time || app.hits || 1);
+                        const weight = 1;
                         statsMap[rawClass] = (statsMap[rawClass] || 0) + weight;
                     });
                     classStats = Object.keys(statsMap).map(key => ({
@@ -266,7 +266,7 @@
             const bytes = Number(b);
             if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
             const k = 1024, sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            const i = Math.max(0, Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(k))));
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
@@ -312,6 +312,7 @@
 
                 document.getElementById('dns-servers').innerHTML = net.dns && net.dns.length > 0 ? net.dns.join(' ') : '-';
                 netUptimeGlobal = net.network_uptime_raw;
+                document.getElementById('network-uptime').innerText = formatUptime(netUptimeGlobal);
                 if(net.wanStatus === 'up') document.getElementById('wan-status-dot').classList.remove('hidden');
             }
 
@@ -320,7 +321,9 @@
                 document.getElementById('sys-model').innerText = sys.model || '-';
                 document.getElementById('sys-firmware').innerText = sys.firmware || '-';
                 sysUptimeGlobal = sys.uptime_raw;
+                document.getElementById('sys-uptime').innerText = '在线时间: ' + formatUptime(sysUptimeGlobal);
                 sysTimeGlobal = sys.systime_raw;
+                document.getElementById('sys-time').innerText = formatSysTime(sysTimeGlobal);
                 updateCpuMem(sys);
             }
         }
@@ -346,16 +349,59 @@
             document.getElementById('active-device-count').innerText = activeCount;
             if (document.getElementById('summary-devices')) document.getElementById('summary-devices').innerText = activeCount;
 
-            document.getElementById('devices-list').innerHTML = devs.map(d => `
+            document.getElementById('devices-list').innerHTML = devs.map(d => {
+                let isMobile = d.type === 'mobile';
+                let isRouter = d.type === 'router';
+
+                // 网关对比：100% 确定为上级路由器
+                const gatewayEl = document.getElementById('gateway');
+                const gatewayIp = gatewayEl ? gatewayEl.innerText.trim() : '';
+                if (d.ip && gatewayIp && d.ip === gatewayIp && gatewayIp !== '-') {
+                    isRouter = true;
+                }
+
+                if (!isMobile && !isRouter && d.name) {
+                    const nameLower = d.name.toLowerCase();
+                    // 优先判定路由器、中继和AP
+                    if (nameLower.includes("router") || nameLower.includes("route") || nameLower.includes("openwrt") ||
+                        nameLower.includes("tplink") || nameLower.includes("tp-link") || nameLower.includes("dlink") ||
+                        nameLower.includes("d-link") || nameLower.includes("netgear") || nameLower.includes("linksys") ||
+                        nameLower.includes("mercury") || nameLower.includes("tenda") || nameLower.includes("totolink") ||
+                        nameLower.includes("fast") || nameLower.includes("miwifi") || nameLower.includes("ikuai") ||
+                        nameLower.includes("phicomm") || nameLower.includes("gl-inet") || nameLower.includes("gl.inet") ||
+                        nameLower.includes("repeater") || nameLower.includes("extender") ||
+                        nameLower.includes("ap-") || nameLower.includes("-ap")) {
+                        isRouter = true;
+                    } else if (nameLower.includes("iphone") || nameLower.includes("ipad") || nameLower.includes("android") ||
+                        nameLower.includes("phone") || nameLower.includes("mobile") ||
+                        nameLower.includes("huawei") || nameLower.includes("honor") || nameLower.includes("xiaomi") ||
+                        nameLower.includes("redmi") || nameLower.includes("oppo") || nameLower.includes("vivo") ||
+                        nameLower.includes("oneplus") || nameLower.includes("samsung") || nameLower.includes("meizu") ||
+                        nameLower.includes("realme") || nameLower.includes("iqoo") || nameLower.includes("galaxy") ||
+                        nameLower.includes("pad") || nameLower.includes("tab") ||
+                        nameLower.includes("yi-jia") || nameLower.includes("yijia")) {
+                        isMobile = true;
+                    }
+                }
+
+                let iconName = 'laptop';
+                if (isMobile) {
+                    iconName = 'smartphone';
+                } else if (isRouter) {
+                    iconName = 'router';
+                }
+
+                return `
                 <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
                     <div class="flex items-center space-x-2">
-                        <div class="${d.active ? 'text-blue-500' : 'text-gray-300'}"><i data-lucide="${d.type === 'mobile' ? 'smartphone' : 'laptop'}" class="w-4 h-4"></i></div>
+                        <div class="${d.active ? 'text-blue-500' : 'text-gray-300'}"><i data-lucide="${iconName}" class="w-4 h-4"></i></div>
                         <div>
                             <div class="text-xs font-medium ${d.active ? 'text-gray-800' : 'text-gray-400'}">${d.name || d.mac}</div>
                             <div class="text-[10px] text-gray-400 font-mono">${d.ip}</div>
                         </div>
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
             if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
                 lucide.createIcons();
             }
@@ -606,3 +652,4 @@
         initNavButtons();
         loadStaticInfo(); loadDevices(); loadDomains(); loadActiveApps(); refresh();
         setInterval(refresh, 2000); setInterval(loadDomains, 5000); setInterval(loadActiveApps, 15000);
+        setInterval(loadStaticInfo, 10000); setInterval(loadDevices, 10000);

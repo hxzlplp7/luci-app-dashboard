@@ -77,7 +77,7 @@
             const statsMap = {};
             databusApps.forEach(app => {
                 const rawClass = app.class_label || app.class || 'others';
-                const weight = Number(app.time || app.hits || 1);
+                const weight = 1;
                 statsMap[rawClass] = (statsMap[rawClass] || 0) + weight;
             });
             databusClassStats = Object.keys(statsMap).map(key => ({
@@ -107,7 +107,7 @@
             const statsMap = {};
             oafApps.forEach(app => {
                 const rawClass = app.class_label || app.class || 'others';
-                const weight = Number(app.time || app.hits || 1);
+                const weight = 1;
                 statsMap[rawClass] = (statsMap[rawClass] || 0) + weight;
             });
             oafClassStats = Object.keys(statsMap).map(key => ({
