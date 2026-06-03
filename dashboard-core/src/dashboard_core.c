@@ -1929,17 +1929,66 @@ static void load_feature_cfg() {
 
     fclose(f);
 }
+/* 英文应用名→中文应用名的归一化映射，避免同一应用以两种语言重复出现 */
+static const struct { const char *alias; const char *canonical; } APP_NAME_ALIASES[] = {
+    {"Alipay", "支付宝"},
+    {"AliyunDrive", "阿里云盘"},
+    {"Apple", "苹果官网"},
+    {"Baidu", "百度"},
+    {"Bilibili", "哔哩哔哩"},
+    {"Bing", "必应"},
+    {"CCTV", "央视频"},
+    {"DingTalk", "钉钉"},
+    {"Douban", "豆瓣"},
+    {"Douyin", "抖音"},
+    {"Douyu", "斗鱼"},
+    {"Eleme", "饿了么"},
+    {"Feishu", "飞书"},
+    {"Genshin", "原神"},
+    {"GitHub", "github"},
+    {"Google", "谷歌"},
+    {"Honor of Kings", "王者荣耀"},
+    {"Huya", "虎牙直播"},
+    {"iQiyi", "爱奇艺"},
+    {"JD", "京东"},
+    {"Kugou", "酷狗音乐"},
+    {"Meituan", "美团"},
+    {"MGTV", "芒果tv"},
+    {"NeteaseMusic", "网易云音乐"},
+    {"Pinduoduo", "拼多多"},
+    {"QQMusic", "QQ音乐"},
+    {"Sunlogin", "向日葵"},
+    {"Taobao", "淘宝"},
+    {"WeChat", "微信"},
+    {"Weibo", "微博"},
+    {"Xiaohongshu", "小红书"},
+    {"Xiaomi", "小米官网"},
+    {"Xigua", "西瓜视频"},
+    {"Youku", "优酷"},
+    {"Zhihu", "知乎"},
+    {NULL, NULL}
+};
+
+static const char* normalize_app_name(const char *name) {
+    for (int i = 0; APP_NAME_ALIASES[i].alias != NULL; i++) {
+        if (strcmp(name, APP_NAME_ALIASES[i].alias) == 0)
+            return APP_NAME_ALIASES[i].canonical;
+    }
+    return name;
+}
 
 static void match_app(const char *domain) {
     for (int i = 0; i < g_dynamic_rules_count; i++) {
         if (match_pattern(domain, g_dynamic_rules[i].pattern)) {
-            record_app(g_dynamic_rules[i].app, g_dynamic_rules[i].class_name);
+            const char *name = normalize_app_name(g_dynamic_rules[i].app);
+            record_app(name, g_dynamic_rules[i].class_name);
             return;
         }
     }
     for (int i = 0; APP_RULES[i].app != NULL; i++) {
         if (match_pattern(domain, APP_RULES[i].pattern)) {
-            record_app(APP_RULES[i].app, APP_RULES[i].class_name);
+            const char *name = normalize_app_name(APP_RULES[i].app);
+            record_app(name, APP_RULES[i].class_name);
             return;
         }
     }

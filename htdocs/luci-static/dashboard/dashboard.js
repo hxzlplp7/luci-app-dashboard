@@ -514,11 +514,12 @@
                 if (cntElement) cntElement.innerText = apps.length;
                 appsElement.innerHTML = apps.slice(0, 12).map((app) => {
                     const iconUrl = resolveAppIcon(app);
-                    // 有图标时直接渲染图标，无图标时使用首字母 + 彩色背景
+                    const firstChar = app.name.charAt(0);
+                    // 有图标时：img + 隐藏的首字母 fallback；加载失败时切换显示
+                    // 无图标时：直接显示首字母渐变背景
                     const iconHtml = iconUrl 
-                        ? `<img src="${iconUrl}" class="w-10 h-10 rounded-[12px] shadow-sm" alt="${app.name}" onerror="this.parentElement.innerHTML='<span class=\\'text-white text-lg font-bold\\'>${app.name.charAt(0)}</span>';this.parentElement.classList.add('bg-gradient-to-br','from-blue-400','to-indigo-500');">` 
-                        : `<span class="text-white text-lg font-bold">${app.name.charAt(0)}</span>`;
-                    // 有图标时使用白色/透明背景，无图标时使用渐变色背景
+                        ? `<img src="${iconUrl}" class="w-10 h-10 rounded-[12px] shadow-sm" alt="${app.name}" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='';this.parentElement.classList.remove('bg-white','border','border-gray-100');this.parentElement.classList.add('bg-gradient-to-br','from-blue-400','to-indigo-500');"><span class="text-white text-lg font-bold" style="display:none">${firstChar}</span>` 
+                        : `<span class="text-white text-lg font-bold">${firstChar}</span>`;
                     const bgClass = iconUrl 
                         ? 'bg-white border border-gray-100' 
                         : 'bg-gradient-to-br from-blue-400 to-indigo-500';
