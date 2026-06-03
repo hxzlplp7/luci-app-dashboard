@@ -1457,7 +1457,6 @@ static const struct app_rule APP_RULES[] = {
     {"cctv5", "developer", "cctv"},
     {"cctv5", "developer", "sports"},
     {"cctv5", "developer", "sports.cctv.com"},
-    {"ComfyUI", "developer", "comfylink.com"},
     {"DingTalk", "social", "dingtalk.com"},
     {"DingTalk", "social", "dingtalkapps.com"},
     {"Discord", "social", "discord.com"},
