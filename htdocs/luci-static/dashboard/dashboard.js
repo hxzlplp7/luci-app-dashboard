@@ -654,5 +654,5 @@
 
         initNavButtons();
         loadStaticInfo(); loadDevices(); loadDomains(); refresh();
-        setInterval(refresh, 2000); setInterval(loadDomains, 5000);
+        setInterval(refresh, 2000); setInterval(loadDomains, 2000);
         setInterval(loadStaticInfo, 10000); setInterval(loadDevices, 10000);
