@@ -1,3 +1,131 @@
+#ifdef _WIN32
+/* Windows IDE 静态分析打桩：完全不引用任何外部头文件，手工声明项目所需的全部类型与函数 */
+typedef unsigned long long size_t;
+typedef long long ssize_t;
+typedef long long time_t;
+typedef int socklen_t;
+typedef unsigned short sa_family_t;
+typedef unsigned int in_addr_t;
+typedef unsigned short uint16_t;
+
+/* stdbool */
+typedef _Bool bool;
+#define true 1
+#define false 0
+
+/* stdarg（使用编译器内建） */
+typedef __builtin_va_list va_list;
+#define va_start(ap, param) __builtin_va_start(ap, param)
+#define va_end(ap) __builtin_va_end(ap)
+
+/* stdio */
+typedef struct FILE FILE;
+extern FILE *stderr;
+
+/* 常量宏 */
+#define NULL ((void*)0)
+#define EINTR 4
+#define SIGPIPE 13
+#define SIG_IGN ((void (*)(int))1)
+#define AF_INET 2
+#define SOCK_STREAM 1
+#define SOL_SOCKET 1
+#define SO_REUSEADDR 2
+#define PROT_READ 1
+
+extern int errno;
+
+/* 网络结构体 */
+struct in_addr {
+    in_addr_t s_addr;
+};
+struct sockaddr {
+    unsigned short sa_family;
+    char sa_data[14];
+};
+struct sockaddr_in {
+    unsigned short sin_family;
+    unsigned short sin_port;
+    struct in_addr sin_addr;
+    char sin_zero[8];
+};
+unsigned short htons(unsigned short hostshort);
+
+/* 内存管理 */
+void *calloc(size_t nmemb, size_t size);
+void *malloc(size_t size);
+void *realloc(void *ptr, size_t size);
+void free(void *ptr);
+
+/* 字符串 */
+size_t strlen(const char *s);
+void *memcpy(void *dest, const void *src, size_t n);
+void *memmove(void *dest, const void *src, size_t n);
+char *strcpy(char *dest, const char *src);
+char *strncpy(char *dest, const char *src, size_t n);
+int strcmp(const char *s1, const char *s2);
+int strncmp(const char *s1, const char *s2, size_t n);
+char *strstr(const char *haystack, const char *needle);
+char *strchr(const char *s, int c);
+char *strrchr(const char *s, int c);
+void *memset(void *s, int c, size_t n);
+char *strncat(char *dest, const char *src, size_t n);
+char *strcat(char *dest, const char *src);
+
+/* 文件 I/O */
+FILE *fopen(const char *pathname, const char *mode);
+char *fgets(char *s, int size, FILE *stream);
+int fclose(FILE *stream);
+FILE *popen(const char *command, const char *type);
+int pclose(FILE *stream);
+int fscanf(FILE *stream, const char *format, ...);
+
+/* 格式化 I/O */
+int sscanf(const char *str, const char *format, ...);
+int sprintf(char *str, const char *format, ...);
+int snprintf(char *str, size_t size, const char *format, ...);
+int vsnprintf(char *str, size_t size, const char *format, va_list ap);
+int printf(const char *format, ...);
+int fprintf(FILE *stream, const char *format, ...);
+int dprintf(int fd, const char *format, ...);
+void perror(const char *s);
+
+/* ctype */
+int tolower(int c);
+int toupper(int c);
+int isspace(int c);
+int isalnum(int c);
+int isalpha(int c);
+int isdigit(int c);
+
+/* stdlib 数值转换 */
+int atoi(const char *nptr);
+long atol(const char *nptr);
+double strtod(const char *nptr, char **endptr);
+unsigned long long strtoull(const char *nptr, char **endptr, int base);
+void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));
+
+/* 网络套接字 */
+int socket(int domain, int type, int protocol);
+int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+int listen(int sockfd, int backlog);
+int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+int inet_pton(int af, const char *src, void *dst);
+
+/* 信号与时间 */
+void (*signal(int signum, void (*handler)(int)))(int);
+time_t time(time_t *tloc);
+
+/* POSIX I/O */
+ssize_t read(int fd, void *buf, size_t count);
+ssize_t write(int fd, const void *buf, size_t count);
+int close(int fd);
+int usleep(unsigned int usec);
+unsigned int sleep(unsigned int seconds);
+
+#else
+// Linux 正常编译分支导入所有标准及 POSIX 头文件
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>
@@ -14,6 +142,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#endif
 
 #define DEFAULT_LISTEN_HOST "127.0.0.1"
 #define DEFAULT_LISTEN_PORT 19090
@@ -682,9 +811,9 @@ static const struct app_rule APP_RULES[] = {
     {"Netflix", "video", "netflix.com"}, {"Netflix", "video", "nflxvideo.net"},
     {"Bilibili", "video", "bilibili.com"}, {"Bilibili", "video", "bilivideo.com"},
     {"TikTok", "social", "tiktok.com"}, {"TikTok", "social", "byteoversea.com"}, {"TikTok", "social", "musical.ly"},
-    {"Douyin", "social", "douyin.com"}, {"Douyin", "social", "douyincdn.com"},
+    {"Douyin", "social", "douyin.com"}, {"Douyin", "social", "douyincdn.com"}, {"Douyin", "social", "douyinvod.com"}, {"Douyin", "social", "bytegecko.com"}, {"Douyin", "social", "amemv.com"}, {"Douyin", "social", "snssdk.com"}, {"Douyin", "social", "ndcpp.com"}, {"Douyin", "social", "starrydyn.com"},
     {"WeChat", "social", "wechat.com"}, {"WeChat", "social", "weixin.qq.com"}, {"WeChat", "social", "qpic.cn"},
-    {"QQ", "social", "qq.com"}, {"QQ", "social", "qzone.qq.com"}, {"QQ", "social", "tencent.com"},
+    {"QQ", "social", "qq.com"}, {"QQ", "social", "qzone.qq.com"}, {"QQ", "social", "tencent.com"}, {"QQ", "social", "smtcdns.com"},
     {"Telegram", "social", "telegram.org"}, {"Telegram", "social", "t.me"},
     {"Discord", "social", "discord.com"}, {"Discord", "social", "discord.gg"},
     {"GitHub", "developer", "github.com"}, {"GitHub", "developer", "githubusercontent.com"},
@@ -694,6 +823,38 @@ static const struct app_rule APP_RULES[] = {
     {"Apple", "cloud", "apple.com"}, {"Apple", "cloud", "icloud.com"}, {"Apple", "cloud", "mzstatic.com"},
     {"Google", "search", "google.com"}, {"Google", "search", "gstatic.com"}, {"Google", "search", "googleapis.com"},
     {"Microsoft", "cloud", "microsoft.com"}, {"Microsoft", "cloud", "live.com"}, {"Microsoft", "cloud", "office.com"},
+    {"iQiyi", "video", "iqiyi.com"}, {"iQiyi", "video", "iqiyipic.com"}, {"iQiyi", "video", "qy.net"},
+    {"JD", "shopping", "jd.com"},
+    {"Lenovo", "cloud", "lenovo.com"}, {"Lenovo", "cloud", "lenovomm.com"},
+    {"Xiaomi", "cloud", "xiaomi.com"}, {"Xiaomi", "cloud", "miui.com"},
+    {"ComfyUI", "developer", "comfylink.com"},
+    {"Weibo", "social", "weibo.com"}, {"Weibo", "social", "weibo.cn"}, {"Weibo", "social", "sinaimg.cn"}, {"Weibo", "social", "sinaimg.com"}, {"Weibo", "social", "sinajs.cn"},
+    {"Alipay", "shopping", "alipay.com"}, {"Alipay", "shopping", "alipayobjects.com"},
+    {"DingTalk", "social", "dingtalk.com"}, {"DingTalk", "social", "dingtalkapps.com"},
+    {"Feishu", "social", "feishu.cn"}, {"Feishu", "social", "larksuite.com"},
+    {"Youku", "video", "youku.com"}, {"Youku", "video", "ykimg.com"},
+    {"Xiaohongshu", "social", "xiaohongshu.com"}, {"Xiaohongshu", "social", "xhscdn.com"},
+    {"CCTV", "video", "cctv.com"}, {"CCTV", "video", "cntv.cn"}, {"CCTV", "video", "cctvpic.com"},
+    {"Xigua", "video", "ixigua.com"}, {"Xigua", "video", "xiguavideo.com"},
+    {"MGTV", "video", "mgtv.com"}, {"MGTV", "video", "hunantv.com"}, {"MGTV", "video", "imgo.tv"},
+    {"Huya", "video", "huya.com"}, {"Huya", "video", "msstatic.com"}, {"Huya", "video", "huyacdn.com"},
+    {"Douyu", "video", "douyu.com"}, {"Douyu", "video", "douyutv.com"}, {"Douyu", "video", "douyucdn.cn"},
+    {"Honor of Kings", "game", "pvp.qq.com"},
+    {"Genshin", "game", "mihoyo.com"}, {"Genshin", "game", "hoyoverse.com"}, {"Genshin", "game", "hoyolab.com"},
+    {"Taobao", "shopping", "taobao.com"}, {"Taobao", "shopping", "tmall.com"}, {"Taobao", "shopping", "alicdn.com"}, {"Taobao", "shopping", "tbcache.com"},
+    {"Pinduoduo", "shopping", "pinduoduo.com"}, {"Pinduoduo", "shopping", "yangkeduo.com"}, {"Pinduoduo", "shopping", "pddpic.com"},
+    {"Meituan", "shopping", "meituan.com"}, {"Meituan", "shopping", "dianping.com"}, {"Meituan", "shopping", "meituan.net"},
+    {"Eleme", "shopping", "ele.me"}, {"Eleme", "shopping", "elemecdn.com"},
+    {"NeteaseMusic", "music", "music.163.com"}, {"NeteaseMusic", "music", "music.126.net"},
+    {"QQMusic", "music", "qqmusic.qq.com"}, {"QQMusic", "music", "music.tc.qq.com"}, {"QQMusic", "music", "y.qq.com"},
+    {"Kugou", "music", "kugou.com"}, {"Kugou", "music", "kugou.net"},
+    {"Baidu", "search", "baidu.com"}, {"Baidu", "search", "bdimg.com"}, {"Baidu", "search", "bdstatic.com"}, {"Baidu", "search", "baidupcs.com"},
+    {"Bing", "search", "bing.com"}, {"Bing", "search", "bing.net"},
+    {"Zhihu", "social", "zhihu.com"}, {"Zhihu", "social", "zhimg.com"},
+    {"Douban", "social", "douban.com"}, {"Douban", "social", "doubanio.com"},
+    {"AliyunDrive", "cloud", "aliyundrive.com"}, {"AliyunDrive", "cloud", "alipan.com"}, {"AliyunDrive", "cloud", "aliyundrive.net"},
+    {"Sunlogin", "cloud", "oray.com"}, {"Sunlogin", "cloud", "sunlogin.net"},
+    {"TeamViewer", "cloud", "teamviewer.com"},
     {NULL, NULL, NULL}
 };
 
@@ -791,11 +952,216 @@ static bool is_ipv4_literal(const char *value)
            d3 >= 0 && d3 <= 255 && d4 >= 0 && d4 <= 255;
 }
 
+struct dynamic_app_rule {
+    char app[64];
+    char class_name[64];
+    char pattern[128];
+};
+
+static struct dynamic_app_rule *g_dynamic_rules = NULL;
+static int g_dynamic_rules_count = 0;
+static int g_dynamic_rules_cap = 0;
+
+static void add_dynamic_rule(const char *app, const char *class_name, const char *pattern) {
+    if (g_dynamic_rules_count >= g_dynamic_rules_cap) {
+        g_dynamic_rules_cap = g_dynamic_rules_cap == 0 ? 128 : g_dynamic_rules_cap * 2;
+        struct dynamic_app_rule *new_rules = realloc(g_dynamic_rules, g_dynamic_rules_cap * sizeof(struct dynamic_app_rule));
+        if (!new_rules) return;
+        g_dynamic_rules = new_rules;
+    }
+    struct dynamic_app_rule *r = &g_dynamic_rules[g_dynamic_rules_count++];
+    strncpy(r->app, app, sizeof(r->app) - 1);
+    r->app[sizeof(r->app) - 1] = '\0';
+    strncpy(r->class_name, class_name, sizeof(r->class_name) - 1);
+    r->class_name[sizeof(r->class_name) - 1] = '\0';
+    strncpy(r->pattern, pattern, sizeof(r->pattern) - 1);
+    r->pattern[sizeof(r->pattern) - 1] = '\0';
+}
+
+static bool wildcard_match(const char *pat, const char *str) {
+    while (*pat) {
+        if (*pat == '*') {
+            while (*pat == '*') pat++;
+            if (!*pat) return true;
+            while (*str) {
+                if (wildcard_match(pat, str)) return true;
+                str++;
+            }
+            return false;
+        } else {
+            if (*pat != *str) return false;
+            pat++;
+            str++;
+        }
+    }
+    return *str == '\0';
+}
+
+static bool match_pattern(const char *domain, const char *pattern) {
+    if (!domain || !pattern) return false;
+    if (!strchr(pattern, '*')) {
+        return strstr(domain, pattern) != NULL;
+    }
+    const char *p = domain;
+    while (*p) {
+        if (wildcard_match(pattern, p)) {
+            return true;
+        }
+        p++;
+    }
+    return false;
+}
+
+static bool is_likely_domain_keyword(const char *s) {
+    if (!s || !*s) return false;
+    size_t len = strlen(s);
+    if (len < 3) return false;
+
+    if (strcmp(s, "tcp") == 0 || strcmp(s, "udp") == 0) return false;
+
+    if (s[0] == '/' || s[0] == '^') return false;
+
+    if (strchr(s, ':') || strchr(s, '|')) return false;
+
+    bool all_digits = true;
+    bool range_format = true;
+    int hyphen_count = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (!isdigit((unsigned char)s[i])) {
+            all_digits = false;
+        }
+        if (s[i] == '-') {
+            hyphen_count++;
+        } else if (!isdigit((unsigned char)s[i])) {
+            range_format = false;
+        }
+    }
+    if (all_digits) return false;
+    if (range_format && hyphen_count == 1) return false;
+
+    return true;
+}
+
+static void parse_feature_line(const char *line, const char *class_name) {
+    const char *colon = strchr(line, ':');
+    if (!colon) return;
+
+    const char *p = colon - 1;
+    while (p > line && *p != ' ' && *p != '\t') {
+        p--;
+    }
+    if (p == line) return;
+    char app_name[64];
+    size_t name_len = (size_t)(colon - (p + 1));
+    if (name_len >= sizeof(app_name)) name_len = sizeof(app_name) - 1;
+    memcpy(app_name, p + 1, name_len);
+    app_name[name_len] = '\0';
+
+    const char *bracket_start = strchr(colon, '[');
+    if (!bracket_start) return;
+    const char *bracket_end = strchr(bracket_start, ']');
+    if (!bracket_end || bracket_end <= bracket_start) return;
+
+    const char *curr = bracket_start + 1;
+    char token[128];
+    size_t token_idx = 0;
+
+    while (curr <= bracket_end) {
+        char c = *curr;
+        if (c == ';' || c == ',' || c == ']') {
+            if (token_idx > 0) {
+                token[token_idx] = '\0';
+                char *t_start = token;
+                while (*t_start == ' ' || *t_start == '\t') t_start++;
+                size_t t_len = strlen(t_start);
+                while (t_len > 0 && (t_start[t_len - 1] == ' ' || t_start[t_len - 1] == '\t')) {
+                    t_start[--t_len] = '\0';
+                }
+                if (is_likely_domain_keyword(t_start)) {
+                    add_dynamic_rule(app_name, class_name, t_start);
+                }
+                token_idx = 0;
+            }
+        } else {
+            if (token_idx < sizeof(token) - 1) {
+                token[token_idx++] = c;
+            }
+        }
+        curr++;
+    }
+}
+
+static void load_feature_cfg() {
+    if (g_dynamic_rules) {
+        free(g_dynamic_rules);
+        g_dynamic_rules = NULL;
+    }
+    g_dynamic_rules_count = 0;
+    g_dynamic_rules_cap = 0;
+
+    const char *paths[] = {
+        "/usr/share/luci-app-dashboard/oaf-default/feature.cfg",
+        "/usr/share/luci-app-dashboard/oaf/feature.cfg",
+        "./root/usr/share/luci-app-dashboard/oaf-default/feature.cfg",
+        "feature.cfg",
+        NULL
+    };
+
+    FILE *f = NULL;
+    for (int i = 0; paths[i] != NULL; i++) {
+        f = fopen(paths[i], "r");
+        if (f) break;
+    }
+
+    if (!f) {
+        return;
+    }
+
+    char line[1024];
+    char current_class[64] = "other";
+
+    while (fgets(line, sizeof(line), f)) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n')) {
+            line[--len] = '\0';
+        }
+
+        char *trimmed = line;
+        while (*trimmed == ' ' || *trimmed == '\t') trimmed++;
+        if (*trimmed == '\0') continue;
+
+        if (strncmp(trimmed, "#class", 6) == 0) {
+            char class_key[64];
+            int class_id;
+            char class_cn[64];
+            if (sscanf(trimmed, "#class %63s %d %63s", class_key, &class_id, class_cn) >= 1) {
+                strncpy(current_class, class_key, sizeof(current_class) - 1);
+                current_class[sizeof(current_class) - 1] = '\0';
+            }
+            continue;
+        }
+
+        if (trimmed[0] == '#') {
+            continue;
+        }
+
+        parse_feature_line(trimmed, current_class);
+    }
+
+    fclose(f);
+}
+
 static void match_app(const char *domain) {
+    for (int i = 0; i < g_dynamic_rules_count; i++) {
+        if (match_pattern(domain, g_dynamic_rules[i].pattern)) {
+            record_app(g_dynamic_rules[i].app, g_dynamic_rules[i].class_name);
+            return;
+        }
+    }
     for (int i = 0; APP_RULES[i].app != NULL; i++) {
         if (strstr(domain, APP_RULES[i].pattern)) {
             record_app(APP_RULES[i].app, APP_RULES[i].class_name);
-            break;
+            return;
         }
     }
 }
@@ -1282,6 +1648,12 @@ static void parse_named_source(const char *label, const char *cmd, char *source,
 static void append_domains_and_apps(struct buffer *b) {
     char source[256] = "";
     char realtime_source[64] = "none";
+    static bool feature_loaded = false;
+
+    if (!feature_loaded) {
+        load_feature_cfg();
+        feature_loaded = true;
+    }
 
     g_seq = 0;
     clear_hashes();
