@@ -5,7 +5,6 @@
 local http = require "luci.http"
 local util = require "luci.util"
 local jsonc = require "luci.jsonc"
-local d = require "luci.dispatcher"
 local _ = require "luci.i18n".translate
 
 local M = {}
@@ -13,6 +12,7 @@ local M = {}
 local DASHBOARD_CORE_URL = "http://127.0.0.1:19090"
 
 function M.index()
+    local d = require "luci.dispatcher"
     d.entry({ "admin", "dashboard" }, d.call("dashboard_dispatch"), _("Dashboard"), 0).leaf = true
     d.entry({ "admin", "dashboard", "api" }, d.call("dashboard_dispatch")).leaf = true
 end
@@ -265,6 +265,7 @@ local LOCAL_API = {
 }
 
 M.dashboard_dispatch = function()
+    local d = require "luci.dispatcher"
     local uri = http.getenv("REQUEST_URI") or ""
     local endpoint = uri:match("/dashboard/api/([^/?#]+)")
 

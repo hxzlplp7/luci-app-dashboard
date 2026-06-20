@@ -65,6 +65,78 @@ opkg_install() {
     fi
 }
 
+install_lua_runtime_dependency() {
+    if opkg status luci-lua-runtime 2>/dev/null | grep -q "Status: install ok installed"; then
+        echo "Dependency luci-lua-runtime is already installed."
+        return 0
+    fi
+
+    echo "Updating opkg package database..."
+    opkg update || true
+
+    echo "Installing dependency: luci-lua-runtime..."
+    if opkg install luci-lua-runtime; then
+        echo "Successfully installed luci-lua-runtime."
+        return 0
+    fi
+
+    echo "opkg install failed. Attempting to locate and download luci-lua-runtime..."
+
+    pkg_file=""
+    for list_file in /var/opkg-lists/*; do
+        if [ -f "$list_file" ]; then
+            pkg_file=$(awk '/Package: luci-lua-runtime/{flag=1;next}/Package:/{flag=0}flag && /Filename:/{print $2;exit}' "$list_file")
+            [ -n "$pkg_file" ] && break
+        fi
+    done
+
+    arch_val="$(detect_arch)"
+    version_val="21.02.0"
+    if [ -f /etc/openwrt_release ]; then
+        . /etc/openwrt_release
+        version_val="${DISTRIB_RELEASE:-21.02.0}"
+    fi
+
+    download_success=0
+    if [ -n "$pkg_file" ] && [ -n "$arch_val" ]; then
+        feed_url=""
+        if [ -f /etc/opkg/distfeeds.conf ]; then
+            feed_url=$(grep -E 'src/gz.*luci' /etc/opkg/distfeeds.conf | head -n 1 | awk '{print $3}')
+        fi
+        [ -z "$feed_url" ] && feed_url="https://downloads.openwrt.org/releases/${version_val}/packages/${arch_val}/luci"
+
+        for base_url in "$feed_url" "$(echo "$feed_url" | sed 's/downloads.openwrt.org/archive.openwrt.org/g')" "https://mirrors.ustc.edu.cn/openwrt/releases/${version_val}/packages/${arch_val}/luci"; do
+            base_url=$(echo "$base_url" | sed 's/\/$//')
+            full_url="${base_url}/${pkg_file}"
+            echo "Trying to download: $full_url"
+            if download "$full_url" "${INSTALL_DIR}/luci-lua-runtime.ipk" 1; then
+                echo "Successfully downloaded luci-lua-runtime.ipk"
+                if opkg install "${INSTALL_DIR}/luci-lua-runtime.ipk"; then
+                    download_success=1
+                    break
+                fi
+            fi
+        done
+    fi
+
+    if [ "$download_success" = "0" ]; then
+        major_ver=$(echo "$version_val" | cut -d. -f1)
+        if [ "$major_ver" -ge 21 ] 2>/dev/null || [ "${DISTRIB_RELEASE:-}" = "SNAPSHOT" ]; then
+            echo "============================================="
+            echo "错误：无法自动安装或下载依赖项 'luci-lua-runtime'！"
+            echo "您的 OpenWrt 版本是 ${version_val}，此版本需要该依赖才能运行 LuCI 插件。"
+            echo "请尝试以下解决方法："
+            echo "1. 确保您的路由器已连接互联网，然后手动执行：opkg update && opkg install luci-lua-runtime"
+            echo "2. 如果您的路由器无法联网，请在电脑上访问下载对应版本的 luci-lua-runtime.ipk，"
+            echo "   然后将其上传到路由器，并执行：opkg install luci-lua-runtime"
+            echo "============================================="
+            exit 1
+        else
+            echo "Warning: Failed to install luci-lua-runtime. Legacy OpenWrt detected, proceeding anyway..."
+        fi
+    fi
+}
+
 detect_arch() {
     if [ -n "${DASHBOARD_CORE_ARCH:-}" ]; then
         printf '%s\n' "$DASHBOARD_CORE_ARCH"
@@ -188,6 +260,7 @@ download "${BASE_URL}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-app-dashboard
 download "${BASE_URL}/luci-i18n-dashboard-zh-cn.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"
 
 cleanup_legacy_kmod
+install_lua_runtime_dependency
 
 CANDIDATE_ARCHES="$(detect_arch_candidates)"
 echo "Backend architecture candidates: $(printf '%s' "$CANDIDATE_ARCHES" | tr '\n' ' ')"
@@ -244,7 +317,14 @@ write_service
 "$CORE_SERVICE" enable
 "$CORE_SERVICE" restart
 
-opkg_install "${INSTALL_DIR}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"
+if [ "$CORE_MODE" = "binary" ]; then
+    echo "Installing packages with --force-depends (binary-mode backend)..."
+    if ! opkg install --force-reinstall --force-depends "${INSTALL_DIR}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"; then
+        opkg install --force-depends "${INSTALL_DIR}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"
+    fi
+else
+    opkg_install "${INSTALL_DIR}/luci-app-dashboard.ipk" "${INSTALL_DIR}/luci-i18n-dashboard-zh-cn.ipk"
+fi
 "$CORE_SERVICE" restart
 
 rm -f /tmp/luci-indexcache /tmp/luci-indexcache.* 2>/dev/null || true
